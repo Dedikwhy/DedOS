@@ -529,14 +529,14 @@ disable_cursor:
 	movl	$980, %edx
 	movb	$10, %al
 /APP
-/  166 "src/vga.c" 1
+/  166 "vga.c" 1
 	outb %al, %dx
 /  0 "" 2
 /NO_APP
 	movl	$981, %edx
 	movb	$32, %al
 /APP
-/  166 "src/vga.c" 1
+/  166 "vga.c" 1
 	outb %al, %dx
 /  0 "" 2
 /NO_APP

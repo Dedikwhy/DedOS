@@ -12,14 +12,14 @@ keyboard_get_char:
 	.align 4
 .L2:
 /APP
-/  8 "include/keyboard.h" 1
+/  8 "keyboard.h" 1
 	inb $100, %al
 /  0 "" 2
 /NO_APP
 	testb	$1, %al
 	je	.L2
 /APP
-/  8 "include/keyboard.h" 1
+/  8 "keyboard.h" 1
 	inb $96, %al
 /  0 "" 2
 /NO_APP
@@ -71,14 +71,14 @@ scan:
 	.align 4
 .L13:
 /APP
-/  8 "include/keyboard.h" 1
+/  8 "keyboard.h" 1
 	inb $100, %al
 /  0 "" 2
 /NO_APP
 	testb	$1, %al
 	je	.L13
 /APP
-/  8 "include/keyboard.h" 1
+/  8 "keyboard.h" 1
 	inb $96, %al
 /  0 "" 2
 /NO_APP
