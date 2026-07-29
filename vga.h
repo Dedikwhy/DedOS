@@ -1,0 +1,33 @@
+#ifndef VGA_H
+#define VGA_H
+
+#define VGA_COLOR(fg, bg) ((bg) << 4 | (fg))
+
+enum vga_color {
+    VGA_COLOR_BLACK = 0,
+    VGA_COLOR_BLUE = 1,
+    VGA_COLOR_GREEN = 2,
+    VGA_COLOR_CYAN = 3,
+    VGA_COLOR_RED = 4,
+    VGA_COLOR_MAGENTA = 5,
+    VGA_COLOR_BROWN = 6,
+    VGA_COLOR_LIGHT_GREY = 7,
+    VGA_COLOR_DARK_GREY = 8,
+    VGA_COLOR_LIGHT_BLUE = 9,
+    VGA_COLOR_LIGHT_GREEN = 10,
+    VGA_COLOR_LIGHT_CYAN = 11,
+    VGA_COLOR_LIGHT_RED = 12,
+    VGA_COLOR_LIGHT_MAGENTA = 13,
+    VGA_COLOR_LIGHT_BROWN = 14,
+    VGA_COLOR_WHITE = 15,
+};
+
+unsigned char vga_entry_color(enum vga_color fg, enum vga_color bg);
+void clear(void);
+void disable_cursor();
+void setcolor(unsigned char color);
+void putchar(char c);
+void write(const char* data);
+void print(const char* format, ...);
+
+#endif
