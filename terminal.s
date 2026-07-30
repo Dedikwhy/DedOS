@@ -26,11 +26,13 @@
 .LC10:
 	.string	"exit"
 .LC11:
+	.string	"hell"
+.LC12:
 	.string	"Unknown command\n"
 	.section	.text.unlikely,"ax",@progbits
-.LCOLDB12:
+.LCOLDB13:
 	.text
-.LHOTB12:
+.LHOTB13:
 	.align 4
 	.globl	terminal
 	.type	terminal, @function
@@ -68,7 +70,7 @@ terminal:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 	testl	%eax, %eax
-	je	.L10
+	je	.L11
 	subl	$8, %esp
 	.cfi_def_cfa_offset 24
 	pushl	$.LC7
@@ -79,7 +81,7 @@ terminal:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 	testl	%eax, %eax
-	je	.L11
+	je	.L12
 	subl	$8, %esp
 	.cfi_def_cfa_offset 24
 	pushl	$.LC8
@@ -90,7 +92,7 @@ terminal:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 	testl	%eax, %eax
-	je	.L12
+	je	.L13
 	subl	$8, %esp
 	.cfi_def_cfa_offset 24
 	pushl	$.LC10
@@ -102,16 +104,21 @@ terminal:
 	.cfi_def_cfa_offset 16
 	testl	%eax, %eax
 	je	.L1
-	subl	$12, %esp
-	.cfi_def_cfa_offset 28
+	subl	$8, %esp
+	.cfi_def_cfa_offset 24
 	pushl	$.LC11
+	.cfi_def_cfa_offset 28
+	pushl	$cmd
 	.cfi_def_cfa_offset 32
-	call	print
+	call	strcmp
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	jne	.L8
+	call	M_Hell
 	jmp	.L2
 	.align 4
-.L10:
+.L11:
 	subl	$12, %esp
 	.cfi_def_cfa_offset 28
 	pushl	$.LC2
@@ -129,12 +136,22 @@ terminal:
 	.cfi_def_cfa_offset 16
 	jmp	.L2
 	.align 4
-.L11:
+.L12:
 	call	clear
 	call	first_draw
 	jmp	.L2
 	.align 4
-.L12:
+.L8:
+	subl	$12, %esp
+	.cfi_def_cfa_offset 28
+	pushl	$.LC12
+	.cfi_def_cfa_offset 32
+	call	print
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	jmp	.L2
+	.align 4
+.L13:
 	subl	$12, %esp
 	.cfi_def_cfa_offset 28
 	pushl	$.LC9
@@ -152,8 +169,8 @@ terminal:
 .LFE1:
 	.size	terminal, .-terminal
 	.section	.text.unlikely
-.LCOLDE12:
+.LCOLDE13:
 	.text
-.LHOTE12:
+.LHOTE13:
 	.comm	cmd,64,32
 	.ident	"GCC: (GNU) 5.2.0"

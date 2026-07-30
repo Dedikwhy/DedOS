@@ -1,5 +1,6 @@
 #include "terminal.h"
 #include "first_draw.h"
+#include "hell.h"
 
 char cmd[64];
 
@@ -28,6 +29,11 @@ void terminal() {
         else if (strcmp(cmd, "exit") == 0){
             break;
         }
+        else if (strcmp(cmd, "hell") == 0)
+        {
+            M_Hell();
+        }
+        
         else{
             print("Unknown command\n");
         }
