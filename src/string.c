@@ -17,3 +17,24 @@ int strlen(const char *str) {
     }
     return len;
 }
+
+
+int tokenize(char *buf, char **argv, int max_args) {
+    int argc = 0;
+    char *p = buf;
+
+    while (*p && argc < max_args) {
+        while (*p == ' ') p++;      // пропуск пробелов
+        if (!*p) break;
+
+        argv[argc++] = p;
+
+        while (*p && *p != ' ') p++;
+        if (*p) {
+            *p = '\0';
+            p++;
+        }
+    }
+
+    return argc;
+}

@@ -7,4 +7,6 @@ int strcmp(const char *s1, const char *s2);
 // Длина строки
 int strlen(const char *str);
 
+int tokenize(char *buf, char **argv, int max_args);
+
 #endif
