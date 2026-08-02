@@ -19,15 +19,37 @@ cmd_exit:
 .LHOTE0:
 	.section	.rodata.str1.1,"aMS",@progbits,1
 .LC1:
-	.string	"%s"
-.LC2:
-	.string	" "
+	.string	"%s\n"
+	.section	.text.unlikely
+.LCOLDB2:
+	.text
+.LHOTB2:
+	.align 4
+	.type	cmd_pwd, @function
+cmd_pwd:
+.LFB14:
+	.cfi_startproc
+	movl	$current_path, 8(%esp)
+	movl	$.LC1, 4(%esp)
+	jmp	print
+	.cfi_endproc
+.LFE14:
+	.size	cmd_pwd, .-cmd_pwd
+	.section	.text.unlikely
+.LCOLDE2:
+	.text
+.LHOTE2:
+	.section	.rodata.str1.1
 .LC3:
+	.string	"%s"
+.LC4:
+	.string	" "
+.LC5:
 	.string	"\n"
 	.section	.text.unlikely
-.LCOLDB4:
+.LCOLDB6:
 	.text
-.LHOTB4:
+.LHOTB6:
 	.align 4
 	.type	cmd_echo, @function
 cmd_echo:
@@ -45,33 +67,33 @@ cmd_echo:
 	movl	16(%esp), %esi
 	movl	20(%esp), %edi
 	cmpl	$1, %esi
-	jle	.L3
+	jle	.L4
 	movl	$1, %ebx
-	jmp	.L4
+	jmp	.L5
 	.align 4
-.L7:
+.L8:
 	subl	$12, %esp
 	.cfi_def_cfa_offset 28
-	pushl	$.LC2
+	pushl	$.LC4
 	.cfi_def_cfa_offset 32
 	call	print
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
-.L4:
+.L5:
 	subl	$8, %esp
 	.cfi_def_cfa_offset 24
 	pushl	(%edi,%ebx,4)
 	.cfi_def_cfa_offset 28
-	pushl	$.LC1
+	pushl	$.LC3
 	.cfi_def_cfa_offset 32
 	call	print
 	incl	%ebx
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 	cmpl	%ebx, %esi
-	jne	.L7
-.L3:
-	movl	$.LC3, 16(%esp)
+	jne	.L8
+.L4:
+	movl	$.LC5, 16(%esp)
 	popl	%ebx
 	.cfi_restore 3
 	.cfi_def_cfa_offset 12
@@ -86,52 +108,28 @@ cmd_echo:
 .LFE6:
 	.size	cmd_echo, .-cmd_echo
 	.section	.text.unlikely
-.LCOLDE4:
+.LCOLDE6:
 	.text
-.LHOTE4:
+.LHOTE6:
 	.section	.rodata.str1.4,"aMS",@progbits,1
 	.align 4
-.LC5:
-	.string	"This version of DedOS = 0.1 :3\n"
+.LC7:
+	.string	"This version of DedOS = 0.2 here! :3\n"
+	.section	.rodata.str1.1
+.LC8:
+	.string	"New: RAM File System\n"
+.LC9:
+	.string	"Echo\n"
+.LC10:
+	.string	"Parser.\n"
 	.section	.text.unlikely
-.LCOLDB6:
+.LCOLDB11:
 	.text
-.LHOTB6:
+.LHOTB11:
 	.align 4
 	.type	cmd_version, @function
 cmd_version:
 .LFB3:
-	.cfi_startproc
-	movl	$.LC5, 4(%esp)
-	jmp	print
-	.cfi_endproc
-.LFE3:
-	.size	cmd_version, .-cmd_version
-	.section	.text.unlikely
-.LCOLDE6:
-	.text
-.LHOTE6:
-	.section	.rodata.str1.1
-.LC7:
-	.string	"Commands: \n"
-.LC8:
-	.string	"help\n"
-.LC9:
-	.string	"clear\n"
-.LC10:
-	.string	"version\n"
-.LC11:
-	.string	"echo <text>\n"
-.LC12:
-	.string	"exit\n"
-	.section	.text.unlikely
-.LCOLDB13:
-	.text
-.LHOTB13:
-	.align 4
-	.type	cmd_help, @function
-cmd_help:
-.LFB1:
 	.cfi_startproc
 	subl	$24, %esp
 	.cfi_def_cfa_offset 28
@@ -142,11 +140,84 @@ cmd_help:
 	call	print
 	movl	$.LC9, (%esp)
 	call	print
-	movl	$.LC10, (%esp)
+	movl	$.LC10, 32(%esp)
+	addl	$28, %esp
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE3:
+	.size	cmd_version, .-cmd_version
+	.section	.text.unlikely
+.LCOLDE11:
+	.text
+.LHOTE11:
+	.section	.rodata.str1.1
+.LC12:
+	.string	"Commands: \n"
+.LC13:
+	.string	"help\n"
+.LC14:
+	.string	"clear\n"
+.LC15:
+	.string	"version\n"
+.LC16:
+	.string	"echo <text>\n"
+.LC17:
+	.string	"ls\n"
+.LC18:
+	.string	"touch <file-name>\n"
+.LC19:
+	.string	"read <file-name>\n"
+	.section	.rodata.str1.4
+	.align 4
+.LC20:
+	.string	"write <file-name> <file-info>\n"
+	.section	.rodata.str1.1
+.LC21:
+	.string	"rm <file-name>\n"
+.LC22:
+	.string	"mkdir <dir-name\n"
+.LC23:
+	.string	"cd <>\n"
+.LC24:
+	.string	"exit\n"
+	.section	.text.unlikely
+.LCOLDB25:
+	.text
+.LHOTB25:
+	.align 4
+	.type	cmd_help, @function
+cmd_help:
+.LFB1:
+	.cfi_startproc
+	subl	$24, %esp
+	.cfi_def_cfa_offset 28
+	pushl	$.LC12
+	.cfi_def_cfa_offset 32
 	call	print
-	movl	$.LC11, (%esp)
+	movl	$.LC13, (%esp)
 	call	print
-	movl	$.LC12, 32(%esp)
+	movl	$.LC14, (%esp)
+	call	print
+	movl	$.LC15, (%esp)
+	call	print
+	movl	$.LC16, (%esp)
+	call	print
+	movl	$.LC17, (%esp)
+	call	print
+	movl	$.LC18, (%esp)
+	call	print
+	movl	$.LC19, (%esp)
+	call	print
+	movl	$.LC20, (%esp)
+	call	print
+	movl	$.LC21, (%esp)
+	call	print
+	movl	$.LC22, (%esp)
+	call	print
+	movl	$.LC23, (%esp)
+	call	print
+	movl	$.LC24, 32(%esp)
 	addl	$28, %esp
 	.cfi_def_cfa_offset 4
 	jmp	print
@@ -154,13 +225,207 @@ cmd_help:
 .LFE1:
 	.size	cmd_help, .-cmd_help
 	.section	.text.unlikely
-.LCOLDE13:
+.LCOLDE25:
 	.text
-.LHOTE13:
+.LHOTE25:
+	.section	.rodata.str1.4
+	.align 4
+.LC26:
+	.string	"Usage: write <filename> <text>\n"
+	.section	.rodata.str1.1
+.LC27:
+	.string	"Wrote %d bytes to %s\n"
+.LC28:
+	.string	"File not found: %s\n"
 	.section	.text.unlikely
-.LCOLDB14:
+.LCOLDB29:
 	.text
-.LHOTB14:
+.LHOTB29:
+	.align 4
+	.type	cmd_write, @function
+cmd_write:
+.LFB10:
+	.cfi_startproc
+	pushl	%ebp
+	.cfi_def_cfa_offset 8
+	.cfi_offset 5, -8
+	pushl	%edi
+	.cfi_def_cfa_offset 12
+	.cfi_offset 7, -12
+	pushl	%esi
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	pushl	%ebx
+	.cfi_def_cfa_offset 20
+	.cfi_offset 3, -20
+	subl	$1036, %esp
+	.cfi_def_cfa_offset 1056
+	movl	1056(%esp), %edi
+	movl	1060(%esp), %esi
+	cmpl	$2, %edi
+	jle	.L14
+	movl	$3, %ebx
+	xorl	%ebp, %ebp
+	.align 4
+.L15:
+	movl	-4(%esi,%ebx,4), %ecx
+	movb	(%ecx), %dl
+	movl	%ebp, %eax
+	testb	%dl, %dl
+	je	.L17
+	subl	%ebp, %ecx
+	cmpl	$1021, %ebp
+	jle	.L18
+	jmp	.L19
+	.align 4
+.L34:
+	cmpl	$1022, %eax
+	je	.L19
+.L18:
+	incl	%eax
+	movb	%dl, -1(%esp,%eax)
+	movb	(%ecx,%eax), %dl
+	testb	%dl, %dl
+	jne	.L34
+.L17:
+	cmpl	%ebx, %edi
+	jle	.L20
+	cmpl	$1021, %eax
+	jg	.L28
+	leal	1(%eax), %ebp
+	movb	$32, (%esp,%eax)
+	incl	%ebx
+	jmp	.L15
+	.align 4
+.L19:
+	cmpl	%ebx, %edi
+	jle	.L20
+.L28:
+	movl	%eax, %ebp
+	incl	%ebx
+	jmp	.L15
+.L20:
+	movb	$0, (%esp,%eax)
+	pushl	%ecx
+	.cfi_def_cfa_offset 1060
+	pushl	%eax
+	.cfi_def_cfa_offset 1064
+	leal	8(%esp), %eax
+	pushl	%eax
+	.cfi_def_cfa_offset 1068
+	pushl	4(%esi)
+	.cfi_def_cfa_offset 1072
+	call	fs_write
+	addl	$16, %esp
+	.cfi_def_cfa_offset 1056
+	testl	%eax, %eax
+	js	.L23
+	pushl	%edx
+	.cfi_def_cfa_offset 1060
+	pushl	4(%esi)
+	.cfi_def_cfa_offset 1064
+	pushl	%eax
+	.cfi_def_cfa_offset 1068
+	pushl	$.LC27
+	.cfi_def_cfa_offset 1072
+	call	print
+	addl	$16, %esp
+	.cfi_def_cfa_offset 1056
+	addl	$1036, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 20
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 16
+	popl	%esi
+	.cfi_restore 6
+	.cfi_def_cfa_offset 12
+	popl	%edi
+	.cfi_restore 7
+	.cfi_def_cfa_offset 8
+	popl	%ebp
+	.cfi_restore 5
+	.cfi_def_cfa_offset 4
+	ret
+.L14:
+	.cfi_restore_state
+	subl	$12, %esp
+	.cfi_def_cfa_offset 1068
+	pushl	$.LC26
+	.cfi_def_cfa_offset 1072
+	call	print
+	addl	$16, %esp
+	.cfi_def_cfa_offset 1056
+	addl	$1036, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 20
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 16
+	popl	%esi
+	.cfi_restore 6
+	.cfi_def_cfa_offset 12
+	popl	%edi
+	.cfi_restore 7
+	.cfi_def_cfa_offset 8
+	popl	%ebp
+	.cfi_restore 5
+	.cfi_def_cfa_offset 4
+	ret
+.L23:
+	.cfi_restore_state
+	subl	$8, %esp
+	.cfi_def_cfa_offset 1064
+	pushl	4(%esi)
+	.cfi_def_cfa_offset 1068
+	pushl	$.LC28
+	.cfi_def_cfa_offset 1072
+	call	print
+	addl	$16, %esp
+	.cfi_def_cfa_offset 1056
+	addl	$1036, %esp
+	.cfi_def_cfa_offset 20
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 16
+	popl	%esi
+	.cfi_restore 6
+	.cfi_def_cfa_offset 12
+	popl	%edi
+	.cfi_restore 7
+	.cfi_def_cfa_offset 8
+	popl	%ebp
+	.cfi_restore 5
+	.cfi_def_cfa_offset 4
+	ret
+	.cfi_endproc
+.LFE10:
+	.size	cmd_write, .-cmd_write
+	.section	.text.unlikely
+.LCOLDE29:
+	.text
+.LHOTE29:
+	.section	.text.unlikely
+.LCOLDB30:
+	.text
+.LHOTB30:
+	.align 4
+	.type	cmd_ls, @function
+cmd_ls:
+.LFB7:
+	.cfi_startproc
+	jmp	fs_list
+	.cfi_endproc
+.LFE7:
+	.size	cmd_ls, .-cmd_ls
+	.section	.text.unlikely
+.LCOLDE30:
+	.text
+.LHOTE30:
+	.section	.text.unlikely
+.LCOLDB31:
+	.text
+.LHOTB31:
 	.align 4
 	.type	cmd_hell, @function
 cmd_hell:
@@ -171,13 +436,13 @@ cmd_hell:
 .LFE5:
 	.size	cmd_hell, .-cmd_hell
 	.section	.text.unlikely
-.LCOLDE14:
+.LCOLDE31:
 	.text
-.LHOTE14:
+.LHOTE31:
 	.section	.text.unlikely
-.LCOLDB15:
+.LCOLDB32:
 	.text
-.LHOTB15:
+.LHOTB32:
 	.align 4
 	.type	cmd_clear, @function
 cmd_clear:
@@ -193,25 +458,393 @@ cmd_clear:
 .LFE2:
 	.size	cmd_clear, .-cmd_clear
 	.section	.text.unlikely
-.LCOLDE15:
+.LCOLDE32:
 	.text
-.LHOTE15:
+.LHOTE32:
 	.section	.rodata.str1.1
-.LC16:
+.LC33:
+	.string	"Current directory: %s\n"
+.LC34:
+	.string	"No such directory: %s\n"
+	.section	.text.unlikely
+.LCOLDB35:
+	.text
+.LHOTB35:
+	.align 4
+	.type	cmd_cd, @function
+cmd_cd:
+.LFB13:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	20(%esp), %ebx
+	cmpl	$1, 16(%esp)
+	jle	.L43
+	subl	$8, %esp
+	.cfi_def_cfa_offset 24
+	pushl	$current_path
+	.cfi_def_cfa_offset 28
+	pushl	4(%ebx)
+	.cfi_def_cfa_offset 32
+	call	fs_cd
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	jne	.L44
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	ret
+	.align 4
+.L44:
+	.cfi_restore_state
+	movl	4(%ebx), %eax
+	movl	%eax, 20(%esp)
+	movl	$.LC34, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L43:
+	.cfi_restore_state
+	movl	$current_path, 20(%esp)
+	movl	$.LC33, 16(%esp)
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE13:
+	.size	cmd_cd, .-cmd_cd
+	.section	.text.unlikely
+.LCOLDE35:
+	.text
+.LHOTE35:
+	.section	.rodata.str1.1
+.LC36:
+	.string	"Usage: mkdir <dirname>\n"
+.LC37:
+	.string	"Directory created: %s\n"
+.LC38:
+	.string	"Could not create directory\n"
+	.section	.text.unlikely
+.LCOLDB39:
+	.text
+.LHOTB39:
+	.align 4
+	.type	cmd_mkdir, @function
+cmd_mkdir:
+.LFB12:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	20(%esp), %ebx
+	cmpl	$1, 16(%esp)
+	jle	.L49
+	subl	$8, %esp
+	.cfi_def_cfa_offset 24
+	pushl	$current_path
+	.cfi_def_cfa_offset 28
+	pushl	4(%ebx)
+	.cfi_def_cfa_offset 32
+	call	fs_mkdir
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	je	.L50
+	movl	$.LC38, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L50:
+	.cfi_restore_state
+	movl	4(%ebx), %eax
+	movl	%eax, 20(%esp)
+	movl	$.LC37, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L49:
+	.cfi_restore_state
+	movl	$.LC36, 16(%esp)
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE12:
+	.size	cmd_mkdir, .-cmd_mkdir
+	.section	.text.unlikely
+.LCOLDE39:
+	.text
+.LHOTE39:
+	.section	.rodata.str1.1
+.LC40:
+	.string	"Usage: cat <filename>\n"
+	.section	.text.unlikely
+.LCOLDB41:
+	.text
+.LHOTB41:
+	.align 4
+	.type	cmd_read, @function
+cmd_read:
+.LFB9:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	20(%esp), %ebx
+	cmpl	$1, 16(%esp)
+	jle	.L55
+	subl	$12, %esp
+	.cfi_def_cfa_offset 28
+	pushl	4(%ebx)
+	.cfi_def_cfa_offset 32
+	call	fs_get
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	je	.L53
+	addl	$32, %eax
+	movl	%eax, 20(%esp)
+	movl	$.LC1, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L55:
+	.cfi_restore_state
+	movl	$.LC40, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L53:
+	.cfi_restore_state
+	movl	4(%ebx), %eax
+	movl	%eax, 20(%esp)
+	movl	$.LC28, 16(%esp)
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE9:
+	.size	cmd_read, .-cmd_read
+	.section	.text.unlikely
+.LCOLDE41:
+	.text
+.LHOTE41:
+	.section	.rodata.str1.1
+.LC42:
+	.string	"Usage: touch <filename>\n"
+.LC43:
+	.string	"File created: %s\n"
+.LC44:
+	.string	"File already exists!\n"
+.LC45:
+	.string	"Disk full!\n"
+	.section	.text.unlikely
+.LCOLDB46:
+	.text
+.LHOTB46:
+	.align 4
+	.type	cmd_touch, @function
+cmd_touch:
+.LFB8:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	20(%esp), %ebx
+	cmpl	$1, 16(%esp)
+	jle	.L61
+	subl	$12, %esp
+	.cfi_def_cfa_offset 28
+	pushl	4(%ebx)
+	.cfi_def_cfa_offset 32
+	call	fs_create
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	je	.L62
+	incl	%eax
+	je	.L63
+	movl	$.LC45, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L61:
+	.cfi_restore_state
+	movl	$.LC42, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L62:
+	.cfi_restore_state
+	movl	4(%ebx), %eax
+	movl	%eax, 20(%esp)
+	movl	$.LC43, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L63:
+	.cfi_restore_state
+	movl	$.LC44, 16(%esp)
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE8:
+	.size	cmd_touch, .-cmd_touch
+	.section	.text.unlikely
+.LCOLDE46:
+	.text
+.LHOTE46:
+	.section	.rodata.str1.1
+.LC47:
+	.string	"Usage: rm <filename>\n"
+.LC48:
+	.string	"Deleted file: %s\n"
+	.section	.text.unlikely
+.LCOLDB49:
+	.text
+.LHOTB49:
+	.align 4
+	.type	cmd_rm, @function
+cmd_rm:
+.LFB11:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	20(%esp), %ebx
+	cmpl	$1, 16(%esp)
+	jle	.L68
+	subl	$12, %esp
+	.cfi_def_cfa_offset 28
+	pushl	4(%ebx)
+	.cfi_def_cfa_offset 32
+	call	fs_remove
+	addl	$16, %esp
+	.cfi_def_cfa_offset 16
+	testl	%eax, %eax
+	movl	4(%ebx), %eax
+	movl	%eax, 20(%esp)
+	js	.L66
+	movl	$.LC48, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L66:
+	.cfi_restore_state
+	movl	$.LC28, 16(%esp)
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.align 4
+.L68:
+	.cfi_restore_state
+	movl	$.LC47, 16(%esp)
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	jmp	print
+	.cfi_endproc
+.LFE11:
+	.size	cmd_rm, .-cmd_rm
+	.section	.text.unlikely
+.LCOLDE49:
+	.text
+.LHOTE49:
+	.section	.rodata.str1.1
+.LC50:
 	.string	"help"
-.LC17:
+.LC51:
 	.string	"user> "
-.LC18:
+.LC52:
 	.string	"Unknown command: %s\n"
 	.section	.text.unlikely
-.LCOLDB19:
+.LCOLDB53:
 	.text
-.LHOTB19:
+.LHOTB53:
 	.align 4
 	.globl	terminal
 	.type	terminal, @function
 terminal:
-.LFB8:
+.LFB16:
 	.cfi_startproc
 	pushl	%edi
 	.cfi_def_cfa_offset 8
@@ -227,13 +860,13 @@ terminal:
 	call	first_draw
 	movl	should_exit, %ebx
 	testl	%ebx, %ebx
-	jne	.L14
+	jne	.L69
 	movl	%esp, %edi
 	.align 4
-.L24:
+.L79:
 	subl	$12, %esp
 	.cfi_def_cfa_offset 60
-	pushl	$.LC17
+	pushl	$.LC51
 	.cfi_def_cfa_offset 64
 	call	print
 	popl	%edx
@@ -258,10 +891,14 @@ terminal:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 48
 	testl	%eax, %eax
-	je	.L16
-	movl	$.LC16, %eax
+	je	.L71
+	movl	$.LC50, %eax
 	xorl	%ebx, %ebx
-.L19:
+	jmp	.L74
+	.align 4
+.L84:
+	movl	commands(,%ebx,8), %eax
+.L74:
 	subl	$8, %esp
 	.cfi_def_cfa_offset 56
 	pushl	%eax
@@ -272,28 +909,24 @@ terminal:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 48
 	testl	%eax, %eax
-	je	.L28
+	je	.L83
 	incl	%ebx
-	cmpl	$6, %ebx
-	je	.L18
-	movl	commands(,%ebx,8), %eax
-	jmp	.L19
-	.align 4
-.L18:
+	cmpl	$14, %ebx
+	jne	.L84
 	subl	$8, %esp
 	.cfi_def_cfa_offset 56
 	pushl	8(%esp)
 	.cfi_def_cfa_offset 60
-	pushl	$.LC18
+	pushl	$.LC52
 	.cfi_def_cfa_offset 64
 	call	print
 	addl	$16, %esp
 	.cfi_def_cfa_offset 48
-.L16:
+.L71:
 	movl	should_exit, %eax
 	testl	%eax, %eax
-	je	.L24
-.L14:
+	je	.L79
+.L69:
 	addl	$32, %esp
 	.cfi_remember_state
 	.cfi_def_cfa_offset 16
@@ -308,7 +941,7 @@ terminal:
 	.cfi_def_cfa_offset 4
 	ret
 	.align 4
-.L28:
+.L83:
 	.cfi_restore_state
 	subl	$8, %esp
 	.cfi_def_cfa_offset 56
@@ -319,45 +952,82 @@ terminal:
 	call	*commands+4(,%ebx,8)
 	addl	$16, %esp
 	.cfi_def_cfa_offset 48
-	movl	should_exit, %eax
-	testl	%eax, %eax
-	je	.L24
-	jmp	.L14
+	jmp	.L71
 	.cfi_endproc
-.LFE8:
+.LFE16:
 	.size	terminal, .-terminal
 	.section	.text.unlikely
-.LCOLDE19:
+.LCOLDE53:
 	.text
-.LHOTE19:
+.LHOTE53:
 	.section	.rodata.str1.1
-.LC20:
+.LC54:
 	.string	"clear"
-.LC21:
+.LC55:
 	.string	"version"
-.LC22:
+.LC56:
 	.string	"exit"
-.LC23:
+.LC57:
 	.string	"hell"
-.LC24:
+.LC58:
 	.string	"echo"
+.LC59:
+	.string	"ls"
+.LC60:
+	.string	"touch"
+.LC61:
+	.string	"read"
+.LC62:
+	.string	"write"
+.LC63:
+	.string	"rm"
+.LC64:
+	.string	"mkdir"
+.LC65:
+	.string	"cd"
+.LC66:
+	.string	"pwd"
 	.section	.rodata
 	.align 32
 	.type	commands, @object
-	.size	commands, 48
+	.size	commands, 112
 commands:
-	.long	.LC16
+	.long	.LC50
 	.long	cmd_help
-	.long	.LC20
+	.long	.LC54
 	.long	cmd_clear
-	.long	.LC21
+	.long	.LC55
 	.long	cmd_version
-	.long	.LC22
+	.long	.LC56
 	.long	cmd_exit
-	.long	.LC23
+	.long	.LC57
 	.long	cmd_hell
-	.long	.LC24
+	.long	.LC58
 	.long	cmd_echo
+	.long	.LC59
+	.long	cmd_ls
+	.long	.LC60
+	.long	cmd_touch
+	.long	.LC61
+	.long	cmd_read
+	.long	.LC62
+	.long	cmd_write
+	.long	.LC63
+	.long	cmd_rm
+	.long	.LC64
+	.long	cmd_mkdir
+	.long	.LC65
+	.long	cmd_cd
+	.long	.LC66
+	.long	cmd_pwd
+	.globl	current_path
+	.data
+	.align 32
+	.type	current_path, @object
+	.size	current_path, 64
+current_path:
+	.string	"/"
+	.zero	62
 	.local	should_exit
 	.comm	should_exit,4,4
 	.comm	cmd,64,32

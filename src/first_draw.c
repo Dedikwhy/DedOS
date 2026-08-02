@@ -2,13 +2,13 @@
 
 void first_draw() {
     setcolor(VGA_COLOR(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK));
-    print(
-    "                  ####   #####   ####       ####   #####\n"
-    "                  #   #  #       #   #     #   #  #    \n"
-    "                  #   #  ####    #   #     #   #  #####\n"
-    "                  #   #  #       #   #     #   #      #\n"
-    "                  ####   #####   ####       ####  #####\n\n\n"
-    "                     ===DEDOS version: 0.1===\n\n\n");
+
+    print("          .\n");
+    print("         #\n");
+    print("    #@@@@\n");
+    print("   @    @\n");
+    print("   #   @\n");
+    print("   #@@@\n\n");
     setcolor(VGA_COLOR(VGA_COLOR_BLACK, VGA_COLOR_BLACK));
     print("$ ");
 

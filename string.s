@@ -143,4 +143,52 @@ tokenize:
 .LCOLDE2:
 	.text
 .LHOTE2:
+	.section	.text.unlikely
+.LCOLDB3:
+	.text
+.LHOTB3:
+	.align 4
+	.globl	strcat
+	.type	strcat, @function
+strcat:
+.LFB3:
+	.cfi_startproc
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	movl	8(%esp), %eax
+	movl	12(%esp), %ebx
+	movl	%eax, %edx
+	cmpb	$0, (%eax)
+	je	.L63
+	.align 4
+.L53:
+	incl	%edx
+	cmpb	$0, (%edx)
+	jne	.L53
+	movb	(%ebx), %cl
+	testb	%cl, %cl
+	je	.L64
+	.align 4
+.L55:
+	incl	%edx
+	incl	%ebx
+	movb	%cl, -1(%edx)
+.L63:
+	movb	(%ebx), %cl
+	testb	%cl, %cl
+	jne	.L55
+.L64:
+	movb	$0, (%edx)
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	ret
+	.cfi_endproc
+.LFE3:
+	.size	strcat, .-strcat
+	.section	.text.unlikely
+.LCOLDE3:
+	.text
+.LHOTE3:
 	.ident	"GCC: (GNU) 5.2.0"

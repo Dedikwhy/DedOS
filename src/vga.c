@@ -161,13 +161,11 @@ void print(const char* format, ...) {
     __builtin_va_end(args);
 }
 
-// Функция отправки байта в порт (если её еще нет)
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-// Отключает аппаратный мигающий курсор VGA
 void disable_cursor(void) {
     outb(0x3D4, 0x0A);
-    outb(0x3D5, 0x20); // Бит 5 отключает курсор
+    outb(0x3D5, 0x20);
 }

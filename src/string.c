@@ -5,8 +5,6 @@ int strcmp(const char *s1, const char *s2) {
         s1++;
         s2++;
     }
-    // Возвращает 0, если строки равны. 
-    // Если не равны — вернет разницу ASCII-кодов первых не совпавших символов.
     return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
 
@@ -18,13 +16,12 @@ int strlen(const char *str) {
     return len;
 }
 
-
 int tokenize(char *buf, char **argv, int max_args) {
     int argc = 0;
     char *p = buf;
 
     while (*p && argc < max_args) {
-        while (*p == ' ') p++;      // пропуск пробелов
+        while (*p == ' ') p++;       // пропуск пробелов
         if (!*p) break;
 
         argv[argc++] = p;
@@ -35,6 +32,17 @@ int tokenize(char *buf, char **argv, int max_args) {
             p++;
         }
     }
-
     return argc;
+}
+
+char *strcat(char *dest, const char *src) {
+    char *ptr = dest;
+    while (*ptr != '\0') {
+        ptr++;
+    }
+    while (*src != '\0') {
+        *ptr++ = *src++;
+    }
+    *ptr = '\0';
+    return dest;
 }

@@ -9,4 +9,6 @@ int strlen(const char *str);
 
 int tokenize(char *buf, char **argv, int max_args);
 
+char *strcat(char *dest, const char *src);
+
 #endif
