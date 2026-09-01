@@ -1,4 +1,4 @@
-#include "c:/DedOS/include/hell.h"
+#include "hell.h"
 
 char hell_mode[4];
 

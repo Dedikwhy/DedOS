@@ -16,16 +16,19 @@ void fs_init(void) {
     }
 }
 
-void fs_list(void) {
+void fs_list(const char *current_path) {
     print("--- Filesystem (RAM) ---\n");
     int count = 0;
 
     for (int i = 0; i < MAX_FILES; i++) {
-        if (ramdisk[i].used) {
-            print("  %s %s (%d bytes)\n", 
-                  ramdisk[i].name, 
-                  ramdisk[i].is_dir ? "[DIR]" : "", 
+        if (ramdisk[i].used &&
+            strcmp(ramdisk[i].parent_path, current_path) == 0) {
+
+            print("  %s %s (%d bytes)\n",
+                  ramdisk[i].name,
+                  ramdisk[i].is_dir ? "[DIR]" : "",
                   ramdisk[i].size);
+
             count++;
         }
     }
@@ -35,15 +38,18 @@ void fs_list(void) {
     }
 }
 
-int fs_create(const char *name) {
+int fs_create(const char *name, const char *current_path) {
     for (int i = 0; i < MAX_FILES; i++) {
-        if (ramdisk[i].used && strcmp(ramdisk[i].name, name) == 0) {
+        if (ramdisk[i].used &&
+            strcmp(ramdisk[i].name, name) == 0 &&
+            strcmp(ramdisk[i].parent_path, current_path) == 0) {
             return -1;
         }
     }
 
     for (int i = 0; i < MAX_FILES; i++) {
         if (!ramdisk[i].used) {
+
             int j = 0;
             while (name[j] != '\0' && j < MAX_FILENAME - 1) {
                 ramdisk[i].name[j] = name[j];
@@ -55,6 +61,14 @@ int fs_create(const char *name) {
             ramdisk[i].data[0] = '\0';
             ramdisk[i].is_dir = 0;
             ramdisk[i].used = 1;
+
+            int p = 0;
+            while (current_path[p] != '\0' && p < 63) {
+                ramdisk[i].parent_path[p] = current_path[p];
+                p++;
+            }
+            ramdisk[i].parent_path[p] = '\0';
+
             return 0;
         }
     }

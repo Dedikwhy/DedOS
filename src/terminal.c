@@ -3,7 +3,7 @@
 #include "hell.h"
 #include "fs.h"
 
-#define MAX_ARGS 8
+#define MAX_ARGS 24
 
 char cmd[64];
 static int should_exit = 0;
@@ -59,7 +59,7 @@ static void cmd_echo(int argc, char **argv) {
 }
 static void cmd_ls(int argc, char **argv) {
     (void)argc; (void)argv;
-    fs_list();
+    fs_list(current_path);
 }
 
 static void cmd_touch(int argc, char **argv) {
@@ -67,7 +67,9 @@ static void cmd_touch(int argc, char **argv) {
         print("Usage: touch <filename>\n");
         return;
     }
-    int res = fs_create(argv[1]);
+
+    int res = fs_create(argv[1], current_path);
+
     if (res == 0) print("File created: %s\n", argv[1]);
     else if (res == -1) print("File already exists!\n");
     else print("Disk full!\n");

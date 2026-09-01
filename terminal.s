@@ -414,6 +414,7 @@ cmd_write:
 cmd_ls:
 .LFB7:
 	.cfi_startproc
+	movl	$current_path, 4(%esp)
 	jmp	fs_list
 	.cfi_endproc
 .LFE7:
@@ -700,7 +701,9 @@ cmd_touch:
 	movl	20(%esp), %ebx
 	cmpl	$1, 16(%esp)
 	jle	.L61
-	subl	$12, %esp
+	subl	$8, %esp
+	.cfi_def_cfa_offset 24
+	pushl	$current_path
 	.cfi_def_cfa_offset 28
 	pushl	4(%ebx)
 	.cfi_def_cfa_offset 32
@@ -855,8 +858,8 @@ terminal:
 	pushl	%ebx
 	.cfi_def_cfa_offset 16
 	.cfi_offset 3, -16
-	subl	$32, %esp
-	.cfi_def_cfa_offset 48
+	subl	$96, %esp
+	.cfi_def_cfa_offset 112
 	call	first_draw
 	movl	should_exit, %ebx
 	testl	%ebx, %ebx
@@ -865,31 +868,31 @@ terminal:
 	.align 4
 .L79:
 	subl	$12, %esp
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	$.LC51
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	print
 	popl	%edx
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	popl	%ecx
-	.cfi_def_cfa_offset 56
+	.cfi_def_cfa_offset 120
 	pushl	$64
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	$cmd
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	scan
 	addl	$12, %esp
-	.cfi_def_cfa_offset 52
-	pushl	$8
-	.cfi_def_cfa_offset 56
+	.cfi_def_cfa_offset 116
+	pushl	$24
+	.cfi_def_cfa_offset 120
 	pushl	%edi
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	$cmd
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	tokenize
 	movl	%eax, %esi
 	addl	$16, %esp
-	.cfi_def_cfa_offset 48
+	.cfi_def_cfa_offset 112
 	testl	%eax, %eax
 	je	.L71
 	movl	$.LC50, %eax
@@ -900,34 +903,34 @@ terminal:
 	movl	commands(,%ebx,8), %eax
 .L74:
 	subl	$8, %esp
-	.cfi_def_cfa_offset 56
+	.cfi_def_cfa_offset 120
 	pushl	%eax
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	12(%esp)
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	strcmp
 	addl	$16, %esp
-	.cfi_def_cfa_offset 48
+	.cfi_def_cfa_offset 112
 	testl	%eax, %eax
 	je	.L83
 	incl	%ebx
 	cmpl	$14, %ebx
 	jne	.L84
 	subl	$8, %esp
-	.cfi_def_cfa_offset 56
+	.cfi_def_cfa_offset 120
 	pushl	8(%esp)
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	$.LC52
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	print
 	addl	$16, %esp
-	.cfi_def_cfa_offset 48
+	.cfi_def_cfa_offset 112
 .L71:
 	movl	should_exit, %eax
 	testl	%eax, %eax
 	je	.L79
 .L69:
-	addl	$32, %esp
+	addl	$96, %esp
 	.cfi_remember_state
 	.cfi_def_cfa_offset 16
 	popl	%ebx
@@ -944,14 +947,14 @@ terminal:
 .L83:
 	.cfi_restore_state
 	subl	$8, %esp
-	.cfi_def_cfa_offset 56
+	.cfi_def_cfa_offset 120
 	pushl	%edi
-	.cfi_def_cfa_offset 60
+	.cfi_def_cfa_offset 124
 	pushl	%esi
-	.cfi_def_cfa_offset 64
+	.cfi_def_cfa_offset 128
 	call	*commands+4(,%ebx,8)
 	addl	$16, %esp
-	.cfi_def_cfa_offset 48
+	.cfi_def_cfa_offset 112
 	jmp	.L71
 	.cfi_endproc
 .LFE16:

@@ -19,10 +19,10 @@ typedef struct {
 
 
 void fs_init(void);
-int fs_create(const char *name);
+int fs_create(const char *name, const char *current_path);
 int fs_write(const char *name, const char *data, uint32_t len);
 file_t* fs_get(const char *name);
-void fs_list(void);
+void fs_list(const char *current_path);
 int fs_remove(const char *filename);
 int fs_mkdir(const char *dirname, const char *current_path);
 int fs_cd(const char *dirname, char *current_path);
