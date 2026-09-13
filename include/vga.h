@@ -30,4 +30,8 @@ void putchar(char c);
 void write(const char* data);
 void print(const char* format, ...);
 
+// Включает/выключает перенаправление вывода в графическое окно (см. gui.c).
+// Когда режим включён, putchar/clear/setcolor работают через GUI, а не через 0xB8000.
+void vga_set_gui_mode(int enabled);
+
 #endif

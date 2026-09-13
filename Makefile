@@ -1,39 +1,38 @@
-CC = i386-elf-gcc
-AS = i386-elf-as
-LD = i386-elf-ld
+CC = /mnt/c/i868-elf/i386-elf-gcc/bin/i386-elf-gcc.exe
+AS = /mnt/c/i868-elf/i386-elf-binutils/bin/i386-elf-as.exe
+LD = /mnt/c/i868-elf/i386-elf-binutils/bin/i386-elf-ld.exe
 
 CFLAGS = -std=gnu99 -ffreestanding -O2 -Wall -Wextra -Iinclude
 ASFLAGS = --32
 
-# Список всех C-файлов
 C_SOURCES = $(wildcard src/*.c)
-# Преобразуем src/foo.c в build/foo.o
-OBJS = build/boot.o $(patsubst src/%.c, build/%.o, $(C_SOURCES))
+C_OBJECTS = $(patsubst src/%.c,build/%.o,$(C_SOURCES))
 
-QEMU = "/c/Program Files/qemu/qemu-system-i386.exe"
+OBJS = build/boot.o $(C_OBJECTS)
 
-all: build/myos.bin
+TARGET = build/myos.bin
 
-# Сборка ассемблерного загрузчика
-build/boot.o: src/boot.s | build
-	$(AS) $(ASFLAGS) $< -o $@
+QEMU = qemu-system-i386
 
-# Компиляция C-файлов напрямую в .o (без промежуточных .s файлов)
-build/%.o: src/%.c | build
-	$(CC) -c $< -o $@ $(CFLAGS)
+.PHONY: all run clean
 
-# Линковка готового бинарника
-build/myos.bin: $(OBJS)
-	$(LD) -T linker.ld -o $@ $(OBJS)
+all: $(TARGET)
 
-# Создание папки build если её нет
 build:
 	mkdir -p build
 
-# Запуск в QEMU
-run: build/myos.bin
-	$(QEMU) -kernel build/myos.bin
+build/boot.o: boot.asm | build
+	nasm -f elf32 $< -o $@
 
-# Очистка проекта
+build/%.o: src/%.c | build
+	$(CC) $(CFLAGS) -S $< -o build/$*.s
+	$(AS) $(ASFLAGS) build/$*.s -o $@
+
+$(TARGET): $(OBJS)
+	$(LD) -T linker.ld -o $@ $(OBJS)
+
+run: $(TARGET)
+	$(QEMU) -kernel $(TARGET)
+
 clean:
 	rm -rf build

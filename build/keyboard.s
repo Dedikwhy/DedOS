@@ -9,48 +9,57 @@
 keyboard_get_char:
 .LFB1:
 	.cfi_startproc
-	movl	4(%esp), %eax
-	cmpb	$42, %al
-	je	.L2
-	cmpb	$54, %al
-	je	.L2
-	cmpb	$-86, %al
-	je	.L5
-	cmpb	$-74, %al
-	je	.L5
-	cmpb	last_scancode, %al
-	je	.L11
-	movb	%al, last_scancode
-	testb	%al, %al
-	js	.L11
-	cmpb	$57, %al
-	ja	.L11
-	movzbl	%al, %eax
-	movl	shift_pressed, %edx
-	testl	%edx, %edx
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$8, %esp
+	.cfi_def_cfa_offset 16
+	movl	16(%esp), %ebx
+	cmpb	%bl, last_scancode
+	je	.L10
+	movb	%bl, last_scancode
+	testb	%bl, %bl
+	js	.L10
+	cmpb	$57, %bl
+	jbe	.L12
+.L10:
+	xorl	%eax, %eax
+.L3:
+	addl	$8, %esp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
+	.cfi_def_cfa_offset 4
+	ret
+	.align 4
+.L12:
+	.cfi_restore_state
+	call	hotkey_is_russian
+	testl	%eax, %eax
+	je	.L6
+	call	hotkey_is_shift_pressed
+	movzbl	%bl, %ebx
+	testl	%eax, %eax
+	je	.L7
+	movb	scancode_to_ascii_upper_rus(%ebx), %al
+	jmp	.L3
+	.align 4
+.L6:
+	call	hotkey_is_shift_pressed
+	movzbl	%bl, %ebx
+	testl	%eax, %eax
 	jne	.L13
-	movb	scancode_to_ascii_lower(%eax), %al
-	ret
+	movb	scancode_to_ascii_lower(%ebx), %al
+	jmp	.L3
 	.align 4
-.L11:
-	xorl	%eax, %eax
-	ret
-	.align 4
-.L5:
-	movl	$0, shift_pressed
-	movb	%al, last_scancode
-	xorl	%eax, %eax
-	ret
-	.align 4
-.L2:
-	movl	$1, shift_pressed
-	movb	%al, last_scancode
-	xorl	%eax, %eax
-	ret
+.L7:
+	movb	scancode_to_ascii_lower_rus(%ebx), %al
+	jmp	.L3
 	.align 4
 .L13:
-	movb	scancode_to_ascii_upper(%eax), %al
-	ret
+	movb	scancode_to_ascii_upper(%ebx), %al
+	jmp	.L3
 	.cfi_endproc
 .LFE1:
 	.size	keyboard_get_char, .-keyboard_get_char
@@ -68,18 +77,23 @@ keyboard_get_char:
 keyboard_handler:
 .LFB2:
 	.cfi_startproc
-	subl	$12, %esp
-	.cfi_def_cfa_offset 16
+	pushl	%ebx
+	.cfi_def_cfa_offset 8
+	.cfi_offset 3, -8
+	subl	$20, %esp
+	.cfi_def_cfa_offset 28
 /APP
 /  8 "include/keyboard.h" 1
 	inb $96, %al
 /  0 "" 2
 /NO_APP
-	movzbl	%al, %eax
-	pushl	%eax
-	.cfi_def_cfa_offset 20
+	movzbl	%al, %ebx
+	pushl	%ebx
+	.cfi_def_cfa_offset 32
+	call	hotkey_handle
+	movl	%ebx, (%esp)
 	call	keyboard_get_char
-	popl	%edx
+	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 	testb	%al, %al
 	je	.L14
@@ -92,7 +106,10 @@ keyboard_handler:
 	addl	$16, %esp
 	.cfi_def_cfa_offset 16
 .L14:
-	addl	$12, %esp
+	addl	$8, %esp
+	.cfi_def_cfa_offset 8
+	popl	%ebx
+	.cfi_restore 3
 	.cfi_def_cfa_offset 4
 	ret
 	.cfi_endproc
@@ -150,11 +167,13 @@ scan:
 	inb $96, %al
 /  0 "" 2
 /NO_APP
+	movzbl	%al, %ebp
 	subl	$12, %esp
 	.cfi_def_cfa_offset 44
-	movzbl	%al, %eax
-	pushl	%eax
+	pushl	%ebp
 	.cfi_def_cfa_offset 48
+	call	hotkey_handle
+	movl	%ebp, (%esp)
 	call	keyboard_get_char
 	addl	$16, %esp
 	.cfi_def_cfa_offset 32
@@ -198,7 +217,7 @@ scan:
 .L22:
 	.cfi_restore_state
 /APP
-/  84 "src/keyboard.c" 1
+/  107 "src/keyboard.c" 1
 	nop
 /  0 "" 2
 /NO_APP
@@ -250,9 +269,131 @@ scan:
 .LHOTE2:
 	.local	last_scancode
 	.comm	last_scancode,1,1
-	.local	shift_pressed
-	.comm	shift_pressed,4,4
 	.section	.rodata
+	.align 32
+	.type	scancode_to_ascii_upper_rus, @object
+	.size	scancode_to_ascii_upper_rus, 58
+scancode_to_ascii_upper_rus:
+	.byte	0
+	.byte	27
+	.byte	33
+	.byte	34
+	.byte	-106
+	.byte	59
+	.byte	37
+	.byte	58
+	.byte	63
+	.byte	42
+	.byte	40
+	.byte	41
+	.byte	95
+	.byte	43
+	.byte	8
+	.byte	9
+	.byte	-103
+	.byte	-90
+	.byte	-93
+	.byte	-102
+	.byte	-107
+	.byte	-99
+	.byte	-109
+	.byte	-88
+	.byte	-87
+	.byte	-105
+	.byte	-91
+	.byte	-86
+	.byte	10
+	.byte	0
+	.byte	-92
+	.byte	-85
+	.byte	-110
+	.byte	-112
+	.byte	-97
+	.byte	-96
+	.byte	-98
+	.byte	-101
+	.byte	-108
+	.byte	-106
+	.byte	-83
+	.byte	-127
+	.byte	0
+	.byte	124
+	.byte	-81
+	.byte	-89
+	.byte	-95
+	.byte	-100
+	.byte	-104
+	.byte	-94
+	.byte	-84
+	.byte	-111
+	.byte	-82
+	.byte	44
+	.byte	0
+	.byte	42
+	.byte	0
+	.byte	32
+	.align 32
+	.type	scancode_to_ascii_lower_rus, @object
+	.size	scancode_to_ascii_lower_rus, 58
+scancode_to_ascii_lower_rus:
+	.byte	0
+	.byte	27
+	.byte	49
+	.byte	50
+	.byte	51
+	.byte	52
+	.byte	53
+	.byte	54
+	.byte	55
+	.byte	56
+	.byte	57
+	.byte	48
+	.byte	45
+	.byte	61
+	.byte	8
+	.byte	9
+	.byte	-71
+	.byte	-122
+	.byte	-125
+	.byte	-70
+	.byte	-75
+	.byte	-67
+	.byte	-77
+	.byte	-120
+	.byte	-119
+	.byte	-73
+	.byte	-123
+	.byte	-118
+	.byte	10
+	.byte	0
+	.byte	-124
+	.byte	-117
+	.byte	-78
+	.byte	-80
+	.byte	-65
+	.byte	-128
+	.byte	-66
+	.byte	-69
+	.byte	-76
+	.byte	-74
+	.byte	-115
+	.byte	-111
+	.byte	0
+	.byte	124
+	.byte	-113
+	.byte	-121
+	.byte	-127
+	.byte	-68
+	.byte	-72
+	.byte	-126
+	.byte	-116
+	.byte	-79
+	.byte	-114
+	.byte	46
+	.byte	0
+	.byte	42
+	.byte	0
+	.byte	32
 	.align 32
 	.type	scancode_to_ascii_upper, @object
 	.size	scancode_to_ascii_upper, 58
