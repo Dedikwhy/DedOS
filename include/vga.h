@@ -24,14 +24,10 @@ enum vga_color {
 
 unsigned char vga_entry_color(enum vga_color fg, enum vga_color bg);
 void clear(void);
-void disable_cursor();
+void disable_cursor(void);
 void setcolor(unsigned char color);
 void putchar(char c);
 void write(const char* data);
 void print(const char* format, ...);
-
-// Включает/выключает перенаправление вывода в графическое окно (см. gui.c).
-// Когда режим включён, putchar/clear/setcolor работают через GUI, а не через 0xB8000.
-void vga_set_gui_mode(int enabled);
 
 #endif

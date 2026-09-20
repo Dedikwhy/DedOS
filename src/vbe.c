@@ -1,20 +1,5 @@
 #include "vbe.h"
-
-// ---------- порты ввода-вывода ----------
-static inline void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-static inline void outw(uint16_t port, uint16_t val) {
-    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
-}
-static inline void outl(uint16_t port, uint32_t val) {
-    __asm__ volatile ("outl %0, %1" : : "a"(val), "Nd"(port));
-}
-static inline uint32_t inl(uint16_t port) {
-    uint32_t ret;
-    __asm__ volatile ("inl %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
+#include "io.h"
 
 // ---------- PCI ----------
 #define PCI_CONFIG_ADDR 0xCF8
@@ -54,6 +39,7 @@ static int pci_find_vga(uint8_t *out_bus, uint8_t *out_slot, uint32_t *out_bar0)
 #define VBE_DISPI_IOPORT_INDEX 0x01CE
 #define VBE_DISPI_IOPORT_DATA  0x01CF
 
+#define VBE_DISPI_INDEX_ID          0x0
 #define VBE_DISPI_INDEX_XRES        0x1
 #define VBE_DISPI_INDEX_YRES        0x2
 #define VBE_DISPI_INDEX_BPP         0x3
@@ -70,6 +56,13 @@ static void dispi_write(uint16_t index, uint16_t value) {
     outw(VBE_DISPI_IOPORT_DATA, value);
 }
 
+static uint16_t dispi_read(uint16_t index) {
+    uint16_t v;
+    outw(VBE_DISPI_IOPORT_INDEX, index);
+    __asm__ volatile ("inw %1, %0" : "=a"(v) : "Nd"((uint16_t)VBE_DISPI_IOPORT_DATA));
+    return v;
+}
+
 static vbe_info_t g_vbe = {0, 0, 0, 0};
 
 int vbe_init(uint32_t width, uint32_t height, uint32_t bpp) {
@@ -82,6 +75,10 @@ int vbe_init(uint32_t width, uint32_t height, uint32_t bpp) {
     if (bar0 == 0) {
         return 0;
     }
+
+    // 0xB0C0..0xB0C5 - идентификатор Bochs/QEMU VBE; чужую карту не трогаем
+    uint16_t id = dispi_read(VBE_DISPI_INDEX_ID);
+    if ((id & 0xFFF0) != 0xB0C0) return 0;
 
     dispi_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
     dispi_write(VBE_DISPI_INDEX_XRES, (uint16_t)width);

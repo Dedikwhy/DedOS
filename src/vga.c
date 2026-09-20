@@ -1,6 +1,6 @@
 #include "vga.h"
 #include "stdint.h"
-#include "gui.h"
+#include "io.h"
 
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
@@ -9,11 +9,6 @@
 static int terminal_row = 0;
 static int terminal_column = 0;
 static unsigned char terminal_color = (VGA_COLOR_BLACK << 4) | VGA_COLOR_LIGHT_GREEN;
-static int s_gui_mode = 0;
-
-void vga_set_gui_mode(int enabled) {
-    s_gui_mode = enabled;
-}
 
 unsigned char vga_entry_color(enum vga_color fg, enum vga_color bg) {
     return fg | (bg << 4);
@@ -24,12 +19,6 @@ static inline unsigned short vga_entry(unsigned char uc, unsigned char color) {
 }
 
 void clear(void) {
-    if (s_gui_mode) {
-        gui_clear_terminal();
-        terminal_row = 0;
-        terminal_column = 0;
-        return;
-    }
     for (int y = 0; y < VGA_HEIGHT; y++) {
         for (int x = 0; x < VGA_WIDTH; x++) {
             VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
@@ -41,9 +30,6 @@ void clear(void) {
 
 void setcolor(unsigned char color) {
     terminal_color = color;
-    if (s_gui_mode) {
-        gui_setcolor(color);
-    }
 }
 
 static void scroll(void) {
@@ -61,10 +47,6 @@ static void scroll(void) {
 }
 
 void putchar(char c) {
-    if (s_gui_mode) {
-        gui_putchar(c);
-        return;
-    }
     if (c == '\n') {
         terminal_column = 0;
         terminal_row++;
@@ -178,10 +160,6 @@ void print(const char* format, ...) {
     }
 
     __builtin_va_end(args);
-}
-
-static inline void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
 void disable_cursor(void) {
