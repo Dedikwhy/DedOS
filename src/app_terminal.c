@@ -2,6 +2,7 @@
 #include "shell.h"
 #include "gfx.h"
 #include "theme.h"
+#include "icons.h"
 #include "timer.h"
 #include "string.h"
 #include "version.h"
@@ -242,9 +243,27 @@ static void on_key(window_t *w, const key_event_t *k) {
     redraw(t);
 }
 
+enum { TC_PASTE = 1, TC_CLEAR, TC_NEW };
+
+static void ctx_cb(void *ctx, int id) {
+    window_t *w = ctx;
+    key_event_t k = { 0, MOD_CTRL };
+    if (id == TC_NEW) { app_terminal_open(); return; }
+    k.key = (id == TC_PASTE) ? 'v' : 'l';
+    on_key(w, &k);
+}
+
 static void on_mouse(window_t *w, const wmouse_t *m) {
     term_t *t = w->priv;
     if (m->type == WM_WHEEL) { set_scroll(t, t->scroll + m->dz * 3); redraw(t); }
+    else if (m->type == WM_CONTEXT) {
+        gui_menu_item_t it[3] = {
+            { "Paste",        -1,            TC_PASTE },
+            { "Clear",        -1,            TC_CLEAR },
+            { "New Terminal", ICON_TERMINAL, TC_NEW },
+        };
+        gui_popup(gui_client_x(w) + m->x, gui_client_y(w) + m->y, it, 3, ctx_cb, w);
+    }
 }
 
 // ---------- отрисовка ----------

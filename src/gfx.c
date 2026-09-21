@@ -66,18 +66,6 @@ void gfx_fill_rect(int x, int y, int w, int h, uint32_t col) {
     for (int yy = y0; yy < y1; yy++) fill_span(s_back + yy * MAX_W + x0, x1 - x0, col);
 }
 
-void gfx_fill_dither(int x, int y, int w, int h, uint32_t c1, uint32_t c2) {
-    const clip_t *c = &s_clip[s_clip_n - 1];
-    int x0 = x < c->x0 ? c->x0 : x;
-    int y0 = y < c->y0 ? c->y0 : y;
-    int x1 = x + w > c->x1 ? c->x1 : x + w;
-    int y1 = y + h > c->y1 ? c->y1 : y + h;
-    for (int yy = y0; yy < y1; yy++) {
-        uint32_t *row = s_back + yy * MAX_W;
-        for (int xx = x0; xx < x1; xx++) row[xx] = ((xx ^ yy) & 1) ? c2 : c1;
-    }
-}
-
 void gfx_hline(int x, int y, int w, uint32_t c) { gfx_fill_rect(x, y, w, 1, c); }
 void gfx_vline(int x, int y, int h, uint32_t c) { gfx_fill_rect(x, y, 1, h, c); }
 
@@ -166,7 +154,7 @@ void gfx_present(int dx, int dy, int dw, int dh, int cx, int cy) {
             int inside = px >= 0 && py >= 0 && px < s_w && py < s_h;
             saved[r * CUR_W + c] = inside ? s_back[py * MAX_W + px] : 0;
             char ch = CURSOR[r][c];
-            if (inside && ch != ' ') s_back[py * MAX_W + px] = (ch == 'X') ? 0x0F1315 : 0xFFFFFF;
+            if (inside && ch != ' ') s_back[py * MAX_W + px] = (ch == 'X') ? 0x061014 : 0xE4F6F8;
         }
 
     if (dw > 0) blit(dx, dy, dw, dh);

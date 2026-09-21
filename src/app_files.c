@@ -29,6 +29,7 @@ typedef struct {
     int  top;
     int  hover;                 // строка под мышью
     int  hover_btn, press_btn;
+    char msg[40];               // сообщение в статус-строке
     uint32_t gen;
 } files_t;
 
@@ -83,6 +84,7 @@ static void navigate(files_t *f, const char *path, int push) {
     }
     strlcpy(f->cwd, path, sizeof(f->cwd));
     f->sel_name[0] = '\0';
+    f->msg[0] = '\0';
     f->top = 0;
     refresh(f);
     set_title(f);
@@ -113,6 +115,7 @@ static void open_entry(files_t *f, int i) {
 
 static void select_row(files_t *f, int i) {
     if (i < -1 || i >= f->n) return;
+    f->msg[0] = '\0';
     f->sel = i;
     strlcpy(f->sel_name, i >= 0 ? f->ents[i]->name : "", sizeof(f->sel_name));
     int vis = vis_rows(f->win);
@@ -133,6 +136,49 @@ static int btn_enabled(const files_t *f, int b) {
     if (b == B_BACK) return f->nhist > 0;
     if (b == B_UP) return strcmp(f->cwd, "/") != 0;
     return 1;
+}
+
+// ---------- контекстное меню ----------
+
+enum { FC_OPEN = 1, FC_DELETE, FC_NEW_DIR, FC_NEW_FILE };
+
+static void make_new(files_t *f, int dir) {
+    char name[MAX_FILENAME], p[MAX_PATH];
+    for (int i = 1; i < 100; i++) {
+        if (i == 1) strlcpy(name, dir ? "folder" : "untitled.txt", sizeof(name));
+        else ksnprintf(name, sizeof(name), dir ? "folder%d" : "untitled%d.txt", i);
+        join(f->cwd, name, p);
+        if (!fs_stat(p)) break;
+    }
+    if ((dir ? fs_mkdir(p) : fs_create(p)) != 0) {
+        strlcpy(f->msg, "Cannot create (filesystem full?)", sizeof(f->msg));
+        gui_invalidate_window(f->win);
+        return;
+    }
+    strlcpy(f->sel_name, name, sizeof(f->sel_name));
+    refresh(f);
+    select_row(f, f->sel);
+}
+
+static void ctx_cb(void *ctx, int id) {
+    files_t *f = ctx;
+    char p[MAX_PATH];
+    switch (id) {
+    case FC_OPEN:
+        open_entry(f, f->sel);
+        break;
+    case FC_DELETE:
+        if (f->sel < 0) break;
+        join(f->cwd, f->ents[f->sel]->name, p);
+        if (fs_remove(p) == -2) strlcpy(f->msg, "Folder is not empty", sizeof(f->msg));
+        else f->msg[0] = '\0';
+        f->sel_name[0] = '\0';
+        refresh(f);
+        gui_invalidate_window(f->win);
+        break;
+    case FC_NEW_DIR:  make_new(f, 1); break;
+    case FC_NEW_FILE: make_new(f, 0); break;
+    }
 }
 
 // ---------- события ----------
@@ -170,6 +216,22 @@ static void on_mouse(window_t *w, const wmouse_t *m) {
     }
 
     switch (m->type) {
+    case WM_CONTEXT: {
+        gui_menu_item_t it[4];
+        int n = 0;
+        if (row >= 0) {
+            select_row(f, row);
+            it[n++] = (gui_menu_item_t){ "Open",   -1, FC_OPEN };
+            it[n++] = (gui_menu_item_t){ "Delete", -1, FC_DELETE };
+        } else if (in_list || m->y >= list_y()) {
+            it[n++] = (gui_menu_item_t){ "New Folder", ICON_FOLDER, FC_NEW_DIR };
+            it[n++] = (gui_menu_item_t){ "New File",   ICON_FILE,   FC_NEW_FILE };
+        } else {
+            return;
+        }
+        gui_popup(gui_client_x(w) + m->x, gui_client_y(w) + m->y, it, n, ctx_cb, f);
+        return;
+    }
     case WM_LEAVE:
         row = -1; btn = -1;
         break;
@@ -294,7 +356,9 @@ static void paint(window_t *w, int x, int y, int cw, int ch) {
     gfx_fill_rect(x, sy, cw, STATUS_H, COL_WINDOW_ALT);
     gfx_hline(x, sy, cw, COL_TEXT_SECONDARY);
     char st[64];
-    if (f->sel >= 0) {
+    if (f->msg[0]) {
+        strlcpy(st, f->msg, sizeof(st));
+    } else if (f->sel >= 0) {
         file_t *e = f->ents[f->sel];
         if (e->is_dir) ksnprintf(st, sizeof(st), "%s  (folder)", e->name);
         else ksnprintf(st, sizeof(st), "%s  %u bytes", e->name, e->size);

@@ -8,6 +8,12 @@ static uint32_t s_gen;
 
 uint32_t fs_generation(void) { return s_gen; }
 
+void fs_usage(int *used, int *total) {
+    int n = 0;
+    for (int i = 0; i < MAX_FILES; i++) if (ramdisk[i].used) n++;
+    *used = n; *total = MAX_FILES;
+}
+
 // ---------- пути ----------
 
 const char *fs_basename(const char *abs) {
@@ -203,7 +209,13 @@ void fs_init(void) {
         "Alt+F2 ............ new Terminal\n"
         "Alt+F3 ............ Files\n"
         "Alt+Tab ........... next window\n"
+        "Alt+1..9 .......... focus window N\n"
         "Alt+F4 ............ close window\n"
+        "Alt+C ............. center window\n"
+        "Ctrl+Alt+Arrows ... move window\n"
+        "Right click ....... context menu\n"
+        "\n"
+        "Type 'keys' in Terminal for the full list.\n"
         "\n"
         "Everything lives in RAM: files you create here\n"
         "are gone after a reboot.\n");

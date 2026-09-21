@@ -18,7 +18,6 @@ int  gfx_visible(int x, int y, int w, int h);     // пересекается л
 // --- примитивы ---
 void gfx_put_pixel(int x, int y, uint32_t c);
 void gfx_fill_rect(int x, int y, int w, int h, uint32_t c);
-void gfx_fill_dither(int x, int y, int w, int h, uint32_t c1, uint32_t c2);  // шахматка 1x1
 void gfx_hline(int x, int y, int w, uint32_t c);
 void gfx_vline(int x, int y, int h, uint32_t c);
 void gfx_rect(int x, int y, int w, int h, uint32_t c);                       // контур 1px

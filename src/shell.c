@@ -227,6 +227,24 @@ static void cmd_hell(shell_t *sh, int argc, char **argv) {
     sh_print(sh, SA_DIM, "...okay, back to work.\n");
 }
 
+static void cmd_keys(shell_t *sh, int argc, char **argv) {
+    (void)argc; (void)argv;
+    static const char *const k[][2] = {
+        { "Super, Alt+F1",     "DedOS menu" },
+        { "Alt+F2, Ctrl+Alt+T","new Terminal" },
+        { "Alt+F3, Ctrl+Alt+F","Files" },
+        { "Ctrl+Alt+N",        "Notepad" },
+        { "Alt+Tab",           "next window (Shift: send to back)" },
+        { "Alt+1..9",          "focus window by number" },
+        { "Alt+F4",            "close window" },
+        { "Alt+C",             "center window" },
+        { "Ctrl+Alt+Arrows",   "move window" },
+        { "Right click",       "context menu (desktop, window, apps)" },
+    };
+    for (unsigned i = 0; i < sizeof(k) / sizeof(k[0]); i++)
+        sh_print(sh, SA_NORMAL, "  %-20s %s\n", k[i][0], k[i][1]);
+}
+
 static void cmd_exit(shell_t *sh, int argc, char **argv) {
     (void)argc; (void)argv;
     sh->io->exit(sh->ctx);
@@ -250,6 +268,7 @@ static const command_t COMMANDS[] = {
     { "edit",     0,                   0,                               cmd_notepad },
     { "terminal", "terminal",          "open another Terminal",         cmd_terminal },
     { "about",    "about",             "about DedOS",                   cmd_about },
+    { "keys",     "keys",              "list hotkeys",                  cmd_keys },
     { "version",  "version",           "print version",                 cmd_version },
     { "date",     "date",              "current date and time",         cmd_date },
     { "uptime",   "uptime",            "time since boot",               cmd_uptime },

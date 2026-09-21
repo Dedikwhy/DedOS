@@ -8,6 +8,7 @@
 #include "timer.h"
 #include "string.h"
 #include "io.h"
+#include "fs.h"
 
 #define MAX_WINDOWS 12
 
@@ -51,12 +52,6 @@ void gui_invalidate_client(window_t *w, int rx, int ry, int rw, int rh) {
 #define ICON_CELL_W 76
 #define ICON_CELL_H 76
 
-#define MENU_X     4
-#define MENU_W     188
-#define MENU_ITEM_H 26
-#define MENU_SEP_H  9
-#define MENU_PAD    3
-
 static int panel_y(void) { return s_h - PANEL_H; }
 
 static void launcher_rect(int *x, int *y, int *w, int *h) { *x = 4; *y = panel_y() + 3; *w = 76; *h = PANEL_H - 6; }
@@ -80,33 +75,41 @@ static void icon_rect(int i, int *x, int *y, int *w, int *h) {
     *x = ICON_X; *y = ICON_Y0 + i * ICON_STEP; *w = ICON_CELL_W; *h = ICON_CELL_H;
 }
 
-// ---------- меню ----------
+// ---------- всплывающее меню (лаунчер и ПКМ) ----------
 
-enum { MK_APP, MK_SEP, MK_RESTART, MK_SHUTDOWN };
-typedef struct { const char *label; int icon; int kind; int app; } menu_item_t;
+#define MENU_ITEM_H 26
+#define MENU_SEP_H  9
+#define MENU_PAD    3
+#define MAX_MENU    12
+#define MK_RESTART_ID  100
+#define MK_SHUTDOWN_ID 101
 
-#define MAX_MENU 12
+typedef struct { const char *label; int icon; int id; int sep; } menu_item_t;
+
 static menu_item_t s_menu[MAX_MENU];
-static int s_nmenu;
-static int s_menu_open;
-static int s_menu_sel = -1;
+static int   s_nmenu, s_menu_open, s_menu_sel = -1;
+static int   s_menu_x, s_menu_y, s_menu_w;
+static void (*s_menu_cb)(void *ctx, int id);
+static void *s_menu_ctx;
+
+static void launcher_cb(void *ctx, int id);
+static void menu_close(void);
+static int menu_is_launcher(void) { return s_menu_open && s_menu_cb == launcher_cb; }
 
 static int menu_height(void) {
     int h = MENU_PAD * 2;
-    for (int i = 0; i < s_nmenu; i++) h += (s_menu[i].kind == MK_SEP) ? MENU_SEP_H : MENU_ITEM_H;
+    for (int i = 0; i < s_nmenu; i++) h += s_menu[i].sep ? MENU_SEP_H : MENU_ITEM_H;
     return h;
 }
 
 static void menu_frame(int *x, int *y, int *w, int *h) {
-    *h = menu_height(); *w = MENU_W; *x = MENU_X; *y = panel_y() - *h - 2;
+    *x = s_menu_x; *y = s_menu_y; *w = s_menu_w; *h = menu_height();
 }
 
 static void menu_item_rect(int idx, int *x, int *y, int *w, int *h) {
-    int mx, my, mw, mh;
-    menu_frame(&mx, &my, &mw, &mh);
-    int yy = my + MENU_PAD;
-    for (int i = 0; i < idx; i++) yy += (s_menu[i].kind == MK_SEP) ? MENU_SEP_H : MENU_ITEM_H;
-    *x = mx + 6; *y = yy; *w = mw - 6 - MENU_PAD; *h = (s_menu[idx].kind == MK_SEP) ? MENU_SEP_H : MENU_ITEM_H;
+    int yy = s_menu_y + MENU_PAD;
+    for (int i = 0; i < idx; i++) yy += s_menu[i].sep ? MENU_SEP_H : MENU_ITEM_H;
+    *x = s_menu_x + 4; *y = yy; *w = s_menu_w - 4 - MENU_PAD; *h = s_menu[idx].sep ? MENU_SEP_H : MENU_ITEM_H;
 }
 
 // ---------- цели мыши (hover / нажатие) ----------
@@ -139,7 +142,7 @@ static target_t pick(int px, int py) {
             t.kind = T_MENU; t.idx = -1;
             for (int i = 0; i < s_nmenu; i++) {
                 menu_item_rect(i, &x, &y, &w, &h);
-                if (s_menu[i].kind != MK_SEP && in_rect(px, py, x, y, w, h)) { t.idx = i; break; }
+                if (!s_menu[i].sep && in_rect(px, py, x, y, w, h)) { t.idx = i; break; }
             }
             return t;
         }
@@ -197,7 +200,14 @@ static void invalidate_target(target_t t) {
 
 static void invalidate_outer(const window_t *w) { gui_invalidate(w->x, w->y, w->w, w->h); }
 
-static void invalidate_panel(void) { gui_invalidate(0, panel_y(), s_w, PANEL_H); }
+static void hud_rect(int *x, int *y, int *w, int *h);
+
+static void invalidate_panel(void) {
+    int x, y, w, h;
+    gui_invalidate(0, panel_y(), s_w, PANEL_H);
+    hud_rect(&x, &y, &w, &h);
+    gui_invalidate(x, y, w, h);                 // HUD показывает список окон
+}
 
 window_t *gui_create_window(const app_t *app, const char *title, int cw, int ch, void *priv) {
     window_t *w = 0;
@@ -252,6 +262,7 @@ void gui_set_title(window_t *w, const char *title) {
 
 void gui_close_window(window_t *w) {
     if (!w || !w->used) return;
+    menu_close();
     if (w->app && w->app->close) w->app->close(w);
 
     invalidate_outer(w);
@@ -286,18 +297,86 @@ static void move_window(window_t *w, int nx, int ny) {
 // ---------- отрисовка ----------
 
 static char s_clock[8] = "--:--";
+static char s_clock_full[10] = "--:--:--";
+static rtc_time_t s_rtc;
+
+static void upper_copy(char *dst, const char *src, int n) {
+    int i = 0;
+    for (; src[i] && i < n - 1; i++) dst[i] = (src[i] >= 'a' && src[i] <= 'z') ? (char)(src[i] - 32) : src[i];
+    dst[i] = '\0';
+}
+
+// ---- HUD справа на рабочем столе ----
+
+#define HUD_W 284
+#define HUD_H 318
+
+static void hud_rect(int *x, int *y, int *w, int *h) { *x = s_w - HUD_W - 12; *y = 12; *w = HUD_W; *h = HUD_H; }
+
+static void hud_header(int x, int y, const char *left, const char *right) {
+    gfx_text(x, y, left, COL_ACCENT_DARK);
+    gfx_text(x + HUD_W - gfx_text_width(right), y, right, COL_ACCENT_DARK);
+    gfx_hline(x, y + 12, HUD_W, COL_PANEL_EDGE);
+}
+
+static void hud_stat(int x, int y, const char *label, const char *value) {
+    int cw = HUD_W / 4;
+    gfx_text(x + (cw - gfx_text_width(label)) / 2, y, label, COL_ACCENT_DARK);
+    gfx_text(x + (cw - gfx_text_width(value)) / 2, y + 12, value, COL_TEXT);
+}
+
+static void paint_hud(void) {
+    int x, y, w, h;
+    hud_rect(&x, &y, &w, &h);
+    if (!gfx_visible(x, y, w, h)) return;
+
+    static const char *const months[12] = { "JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC" };
+    char b[40];
+
+    hud_header(x, y, "PANEL", "SYSTEM");
+    gfx_text_scaled(x + (HUD_W - 8 * 32) / 2, y + 24, s_clock_full, COL_TITLE_TEXT, 4);
+    gfx_hline(x, y + 66, HUD_W, COL_PANEL_EDGE);
+
+    uint32_t up = timer_ms() / 1000;
+    int m = s_rtc.month >= 1 && s_rtc.month <= 12 ? s_rtc.month - 1 : 0;
+    window_t *tasks[MAX_WINDOWS];
+    int nt = collect_tasks(tasks);
+    int cw = HUD_W / 4;
+    ksnprintf(b, sizeof(b), "%s %d", months[m], s_rtc.day);
+    hud_stat(x, y + 74, "DATE", b);
+    ksnprintf(b, sizeof(b), "%d:%02d:%02d", (int)(up / 3600), (int)(up / 60 % 60), (int)(up % 60));
+    hud_stat(x + cw, y + 74, "UPTIME", b);
+    hud_stat(x + cw * 2, y + 74, "TYPE", "DEDOS");
+    ksnprintf(b, sizeof(b), "%d", nt);
+    hud_stat(x + cw * 3, y + 74, "WINDOWS", b);
+    gfx_hline(x, y + 102, HUD_W, COL_PANEL_EDGE);
+
+    int used, total;
+    fs_usage(&used, &total);
+    ksnprintf(b, sizeof(b), "%d/%d", used, total);
+    hud_header(x, y + 110, "FILESYSTEM", b);
+    gfx_rect(x, y + 128, HUD_W, 8, COL_PANEL_EDGE);
+    gfx_fill_rect(x + 2, y + 130, (HUD_W - 4) * used / total, 4, COL_ACCENT);
+
+    hud_header(x, y + 148, "WINDOWS", "ID | NAME");
+    for (int i = 0; i < nt && i < 6; i++) {
+        char t[40];
+        upper_copy(t, tasks[i]->title, 30);
+        int focus = (tasks[i] == top_window());
+        ksnprintf(b, sizeof(b), "%c%d  %s", focus ? '>' : ' ', i + 1, t);
+        gfx_text_fit(x, y + 168 + i * 12, b, focus ? COL_TITLE_TEXT : COL_ACCENT_DARK, HUD_W);
+    }
+    if (nt == 0) gfx_text(x, y + 168, "NO WINDOWS OPEN", COL_ACCENT_DARK);
+
+    hud_header(x, y + 250, "HOTKEYS", "");
+    static const char *const keys[4] = { "ALT+F2 TERMINAL   ALT+F3 FILES", "ALT+TAB NEXT   ALT+1..9 FOCUS", "ALT+F4 CLOSE   ALT+C CENTER", "RIGHT CLICK: CONTEXT MENU" };
+    for (int i = 0; i < 4; i++) gfx_text(x, y + 270 + i * 12, keys[i], COL_ACCENT_DARK);
+}
 
 static void paint_desktop(void) {
-    gfx_fill_dither(0, 0, s_w, panel_y(), COL_DESKTOP, COL_DESKTOP_DOT);
-
-    // логотип на обоях
-    const char *mark = "DedOS";
-    int mw = gfx_text_width(mark) * 8;
-    int mx = s_w - mw - 40, my = panel_y() - 8 * 8 - 60;
-    if (gfx_visible(mx, my, mw, 70)) {
-        gfx_text_scaled(mx, my, mark, COL_DESKTOP_MARK, 8);
-        gfx_text_scaled(mx + mw - 21 * 8, my + 8 * 8 + 10, "small experimental OS", COL_DESKTOP_MARK, 1);
-    }
+    gfx_fill_rect(0, 0, s_w, panel_y(), COL_DESKTOP);
+    for (int gy = 8; gy < panel_y(); gy += 16)
+        for (int gx = 8; gx < s_w; gx += 16) gfx_put_pixel(gx, gy, COL_DESKTOP_DOT);
 
     for (int i = 0; i < APP_COUNT; i++) {
         int x, y, w, h;
@@ -315,6 +394,7 @@ static void paint_desktop(void) {
         if (sel) gfx_fill_rect(tx - 4, ty - 2, tw + 8, 12, COL_SELECT);
         gfx_text(tx, ty, label, sel ? COL_SELECT_TEXT : COL_TEXT_LIGHT);
     }
+    paint_hud();
 }
 
 static void paint_close_box(const window_t *w, int active) {
@@ -324,10 +404,11 @@ static void paint_close_box(const window_t *w, int active) {
     int hover = same(s_hover, me);
     int pressed = hover && same(s_press, me);
 
-    uint32_t fill = pressed ? COL_ACCENT_DARK : hover ? COL_BUTTON_HOVER : active ? COL_WINDOW : COL_TITLE_INACTIVE;
+    uint32_t line = active ? COL_ACCENT : COL_ACCENT_DARK;
+    uint32_t fill = pressed ? COL_ACCENT_DARK : hover ? COL_ACCENT : COL_WINDOW_ALT;
+    uint32_t mark = hover ? COL_INK : line;
     gfx_fill_rect(x, y, bw, bh, fill);
-    gfx_rect(x, y, bw, bh, active ? COL_BORDER : COL_TITLE_TEXT_OFF);
-    uint32_t mark = active ? COL_BORDER : COL_TITLE_TEXT_OFF;
+    gfx_rect(x, y, bw, bh, line);
     for (int i = 0; i < 5; i++) {
         gfx_put_pixel(x + 3 + i, y + 3 + i, mark);
         gfx_put_pixel(x + 3 + i, y + 7 - i, mark);
@@ -337,26 +418,24 @@ static void paint_close_box(const window_t *w, int active) {
 static void paint_window(window_t *w) {
     if (!gfx_visible(w->x, w->y, w->w, w->h)) return;
     int active = (w == top_window());
+    uint32_t line = active ? COL_ACCENT_DARK : COL_BORDER;
 
-    gfx_rect(w->x, w->y, w->w, w->h, COL_BORDER);
+    gfx_rect(w->x, w->y, w->w, w->h, line);
+    gfx_fill_rect(w->x + 1, w->y + 1, w->w - 2, TITLE_H - 1, COL_WINDOW_ALT);
+    gfx_hline(w->x + 1, w->y + TITLE_H, w->w - 2, line);
 
-    // заголовок: янтарный с «полосками» у активного, серый у неактивного
-    uint32_t tb = active ? COL_TITLE_ACTIVE : COL_TITLE_INACTIVE;
-    gfx_fill_rect(w->x + 1, w->y + 1, w->w - 2, TITLE_H - 1, tb);
-    gfx_hline(w->x + 1, w->y + TITLE_H, w->w - 2, COL_BORDER);
-
-    if (active)
-        for (int i = 0; i < 7; i++)
-            gfx_hline(w->x + 24, w->y + 4 + i * 2, w->w - 24 - 5, COL_TITLE_STRIPE);
-
-    int max_w = w->w - 24 - 12 - 12;
-    int tw = (int)strlen(w->title) * 8;
-    if (tw > max_w) tw = max_w / 8 * 8;
-    int tx = w->x + (w->w - tw) / 2;
-    gfx_fill_rect(tx - 6, w->y + 3, tw + 12, 15, tb);
-    gfx_text_fit(tx, w->y + 6, w->title, active ? COL_TITLE_TEXT : COL_TITLE_TEXT_OFF, tw);
-
+    char t[40];
+    upper_copy(t, w->title, sizeof(t));
+    gfx_text_fit(w->x + 26, w->y + 6, t, active ? COL_TITLE_TEXT : COL_TITLE_TEXT_OFF, w->w - 26 - 8);
     paint_close_box(w, active);
+
+    if (active) {                                           // «уголки» HUD у активного окна
+        int x1 = w->x + w->w - 1, y1 = w->y + w->h - 1;
+        gfx_hline(w->x, w->y, 10, COL_ACCENT);   gfx_vline(w->x, w->y, 10, COL_ACCENT);
+        gfx_hline(x1 - 9, w->y, 10, COL_ACCENT); gfx_vline(x1, w->y, 10, COL_ACCENT);
+        gfx_hline(w->x, y1, 10, COL_ACCENT);     gfx_vline(w->x, y1 - 9, 10, COL_ACCENT);
+        gfx_hline(x1 - 9, y1, 10, COL_ACCENT);   gfx_vline(x1, y1 - 9, 10, COL_ACCENT);
+    }
 
     int cx = gui_client_x(w), cy = gui_client_y(w);
     gfx_clip_push(cx, cy, w->cw, w->ch);
@@ -374,12 +453,13 @@ static void paint_panel(void) {
     int x, y, w, h;
     launcher_rect(&x, &y, &w, &h);
     target_t tl = { T_LAUNCH, 0, 0 };
+    int open = menu_is_launcher();
     int lh = same(s_hover, tl);
-    uint32_t lc = s_menu_open ? COL_ACCENT_DARK : lh ? COL_ACCENT_HOVER : COL_ACCENT;
-    gfx_fill_rect(x, y, w, h, lc);
-    gfx_rect(x, y, w, h, COL_BORDER);
-    gfx_text(x + (w - 40) / 2, y + (h - 8) / 2, "DedOS", COL_BORDER);
-    gfx_text(x + (w - 40) / 2 + 1, y + (h - 8) / 2, "DedOS", COL_BORDER);     // «жирный»
+    gfx_fill_rect(x, y, w, h, open ? COL_SELECT : lh ? COL_BUTTON_HOVER : COL_PANEL_BUTTON);
+    gfx_rect(x, y, w, h, open ? COL_SELECT : COL_ACCENT_DARK);
+    uint32_t lt = open ? COL_INK : COL_TITLE_TEXT;
+    gfx_text(x + (w - 40) / 2, y + (h - 8) / 2, "DEDOS", lt);
+    gfx_text(x + (w - 40) / 2 + 1, y + (h - 8) / 2, "DEDOS", lt);          // «жирный»
 
     window_t *tasks[MAX_WINDOWS];
     int n = collect_tasks(tasks);
@@ -389,10 +469,12 @@ static void paint_panel(void) {
         int active = (tasks[i] == top_window());
         int hover = same(s_hover, tt);
         int pressed = hover && same(s_press, tt);
-        uint32_t bg = active ? COL_BORDER : (pressed || hover) ? COL_PANEL_HOVER : COL_PANEL_BUTTON;
+        uint32_t bg = active ? COL_SELECT : (pressed || hover) ? COL_PANEL_HOVER : COL_PANEL_BUTTON;
         gfx_fill_rect(x, y, w, h, bg);
-        if (active) gfx_hline(x, y + h - 2, w, COL_ACCENT);
-        gfx_text_fit(x + 8, y + (h - 8) / 2, tasks[i]->title, active ? COL_PANEL_TEXT : COL_PANEL_DIM, w - 12);
+        if (!active) gfx_rect(x, y, w, h, COL_PANEL_EDGE);
+        char t[40];
+        upper_copy(t, tasks[i]->title, sizeof(t));
+        gfx_text_fit(x + 8, y + (h - 8) / 2, t, active ? COL_INK : COL_PANEL_DIM, w - 12);
     }
 
     clock_rect(&x, &y, &w, &h);
@@ -405,21 +487,25 @@ static void paint_menu(void) {
     menu_frame(&x, &y, &w, &h);
     if (!gfx_visible(x, y, w, h)) return;
 
-    gfx_fill_rect(x, y, w, h, COL_WINDOW);
-    gfx_rect(x, y, w, h, COL_BORDER);
-    gfx_fill_rect(x + 1, y + 1, 4, h - 2, COL_ACCENT);           // янтарная полоса слева
+    gfx_fill_rect(x, y, w, h, COL_WINDOW_ALT);
+    gfx_rect(x, y, w, h, COL_ACCENT_DARK);
+    gfx_fill_rect(x + 1, y + 1, 2, h - 2, COL_ACCENT_DARK);      // полоса слева
 
     for (int i = 0; i < s_nmenu; i++) {
         int ix, iy, iw, ih;
         menu_item_rect(i, &ix, &iy, &iw, &ih);
-        if (s_menu[i].kind == MK_SEP) {
-            gfx_hline(ix + 4, iy + ih / 2, iw - 8, COL_TEXT_SECONDARY);
+        if (s_menu[i].sep) {
+            gfx_hline(ix + 4, iy + ih / 2, iw - 8, COL_PANEL_EDGE);
             continue;
         }
         int sel = (s_menu_sel == i);
         if (sel) gfx_fill_rect(ix, iy, iw, ih, COL_SELECT);
-        icon_draw(s_menu[i].icon, ix + 6, iy + (ih - 16) / 2, 16);
-        gfx_text(ix + 32, iy + (ih - 8) / 2, s_menu[i].label, sel ? COL_SELECT_TEXT : COL_TEXT);
+        int tx = ix + 10;
+        if (s_menu[i].icon >= 0) {
+            icon_draw(s_menu[i].icon, ix + 6, iy + (ih - 16) / 2, 16);
+            tx = ix + 32;
+        }
+        gfx_text(tx, iy + (ih - 8) / 2, s_menu[i].label, sel ? COL_SELECT_TEXT : COL_TEXT);
     }
 }
 
@@ -471,32 +557,77 @@ static void menu_close(void) {
     s_menu_sel = -1;
 }
 
-static void menu_toggle(int by_key) {
-    if (s_menu_open) { menu_close(); return; }
+static void menu_setup(const gui_menu_item_t *items, int n, void (*cb)(void *, int), void *ctx) {
+    if (n > MAX_MENU) n = MAX_MENU;
+    int maxw = 0, icons = 0;
+    for (int i = 0; i < n; i++) {
+        s_menu[i].label = items[i].label;
+        s_menu[i].icon = items[i].icon;
+        s_menu[i].id = items[i].id;
+        s_menu[i].sep = (items[i].label == 0);
+        if (items[i].label && (int)strlen(items[i].label) * 8 > maxw) maxw = (int)strlen(items[i].label) * 8;
+        if (items[i].icon >= 0) icons = 1;
+    }
+    s_nmenu = n;
+    s_menu_w = maxw + (icons ? 44 : 28) + 8;
+    if (s_menu_w < 140) s_menu_w = 140;
+    s_menu_cb = cb;
+    s_menu_ctx = ctx;
+}
+
+static void menu_show(int x, int y, int sel) {
+    s_menu_x = x; s_menu_y = y;
     s_menu_open = 1;
-    s_menu_sel = by_key ? 0 : -1;
-    int x, y, w, h;
-    menu_frame(&x, &y, &w, &h);
-    gui_invalidate(x, y, w, h);
+    s_menu_sel = sel;
+    int fx, fy, fw, fh;
+    menu_frame(&fx, &fy, &fw, &fh);
+    gui_invalidate(fx, fy, fw, fh);
     invalidate_target((target_t){ T_LAUNCH, 0, 0 });
 }
 
-static void menu_activate(int idx) {
-    if (idx < 0 || idx >= s_nmenu) return;
-    menu_item_t it = s_menu[idx];
+void gui_popup(int x, int y, const gui_menu_item_t *items, int n, void (*cb)(void *, int), void *ctx) {
     menu_close();
-    switch (it.kind) {
-    case MK_APP:      APP_LIST[it.app].open(); break;
-    case MK_RESTART:  reboot(); break;
-    case MK_SHUTDOWN: power_off(); break;
-    }
+    menu_setup(items, n, cb, ctx);
+    int h = menu_height();
+    if (x + s_menu_w > s_w) x = s_w - s_menu_w;
+    if (y + h > panel_y()) y -= h;                 // не влезает вниз - раскрываем вверх
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    menu_show(x, y, -1);
+}
+
+static void launcher_open(int by_key) {
+    gui_menu_item_t it[MAX_MENU];
+    int n = 0;
+    for (int i = 0; i < APP_COUNT && n < MAX_MENU - 3; i++)
+        it[n++] = (gui_menu_item_t){ APP_LIST[i].label, APP_LIST[i].icon, i };
+    it[n++] = (gui_menu_item_t){ 0, -1, 0 };
+    it[n++] = (gui_menu_item_t){ "Restart",   ICON_RESTART, MK_RESTART_ID };
+    it[n++] = (gui_menu_item_t){ "Shut Down", ICON_POWER,   MK_SHUTDOWN_ID };
+    menu_close();
+    menu_setup(it, n, launcher_cb, 0);
+    menu_show(4, panel_y() - menu_height() - 2, by_key ? 0 : -1);
+}
+
+static void menu_toggle(int by_key) {
+    if (menu_is_launcher()) menu_close();
+    else launcher_open(by_key);
+}
+
+static void menu_activate(int idx) {
+    if (idx < 0 || idx >= s_nmenu || s_menu[idx].sep) return;
+    int id = s_menu[idx].id;
+    void (*cb)(void *, int) = s_menu_cb;
+    void *ctx = s_menu_ctx;
+    menu_close();
+    if (cb) cb(ctx, id);
 }
 
 static void menu_move(int dir) {
     int i = s_menu_sel;
     for (int n = 0; n < s_nmenu; n++) {
         i = (i + dir + s_nmenu) % s_nmenu;
-        if (s_menu[i].kind != MK_SEP) break;
+        if (!s_menu[i].sep) break;
     }
     if (i != s_menu_sel) {
         int x, y, w, h;
@@ -504,6 +635,13 @@ static void menu_move(int dir) {
         gui_invalidate(x, y, w, h);
         s_menu_sel = i;
     }
+}
+
+static void launcher_cb(void *ctx, int id) {
+    (void)ctx;
+    if (id == MK_RESTART_ID) reboot();
+    else if (id == MK_SHUTDOWN_ID) power_off();
+    else if (id >= 0 && id < APP_COUNT) APP_LIST[id].open();
 }
 
 // ---------- события ----------
@@ -607,15 +745,101 @@ static void mouse_up(int x, int y, int buttons) {
     }
 }
 
+// ---------- окна: действия (меню окна и горячие клавиши) ----------
+
+static void center_window(window_t *w) {
+    if (w) move_window(w, (s_w - w->w) / 2, (panel_y() - w->h) / 2);
+}
+
+static void send_to_back(window_t *w) {
+    if (!w || s_norder < 2) return;
+    int i = 0;
+    while (i < s_norder && s_order[i] != w) i++;
+    if (i == s_norder) return;
+    for (; i > 0; i--) s_order[i] = s_order[i - 1];
+    s_order[0] = w;
+    invalidate_outer(w);
+    invalidate_outer(top_window());
+    invalidate_panel();
+}
+
+static void close_all(void) {
+    while (s_norder) gui_close_window(s_order[s_norder - 1]);
+}
+
+// ---------- правая кнопка ----------
+
+enum { CTX_CLOSE = 1, CTX_BACK, CTX_CENTER, CTX_CLOSE_ALL = 200 };
+
+static void window_menu_cb(void *ctx, int id) {
+    window_t *w = ctx;
+    if (id == CTX_CLOSE) gui_close_window(w);
+    else if (id == CTX_BACK) send_to_back(w);
+    else if (id == CTX_CENTER) center_window(w);
+}
+
+static void desktop_menu_cb(void *ctx, int id) {
+    (void)ctx;
+    if (id == CTX_CLOSE_ALL) close_all();
+    else if (id >= 0 && id < APP_COUNT) APP_LIST[id].open();
+}
+
+static void context_click(int x, int y) {
+    target_t t = pick(x, y);
+    if (t.kind == T_MENU) return;
+    menu_close();
+
+    gui_menu_item_t it[MAX_MENU];
+    int n = 0;
+    switch (t.kind) {
+    case T_ICON:
+        if (s_icon_sel != t.idx) {
+            if (s_icon_sel >= 0) invalidate_target((target_t){ T_ICON, s_icon_sel, 0 });
+            s_icon_sel = t.idx;
+            invalidate_target(t);
+        }
+        it[n++] = (gui_menu_item_t){ "Open", APP_LIST[t.idx].icon, t.idx };
+        gui_popup(x, y, it, n, desktop_menu_cb, 0);
+        break;
+    case T_NONE:
+        for (int i = 0; i < APP_COUNT && n < MAX_MENU - 2; i++)
+            it[n++] = (gui_menu_item_t){ APP_LIST[i].label, APP_LIST[i].icon, i };
+        it[n++] = (gui_menu_item_t){ 0, -1, 0 };
+        it[n++] = (gui_menu_item_t){ "Close All Windows", -1, CTX_CLOSE_ALL };
+        gui_popup(x, y, it, n, desktop_menu_cb, 0);
+        break;
+    case T_TITLE: case T_CLOSE: case T_TASK:
+        gui_focus_window(t.win);
+        it[n++] = (gui_menu_item_t){ "Close",        -1, CTX_CLOSE };
+        it[n++] = (gui_menu_item_t){ "Send to Back", -1, CTX_BACK };
+        it[n++] = (gui_menu_item_t){ "Center",       -1, CTX_CENTER };
+        gui_popup(x, y, it, n, window_menu_cb, t.win);
+        break;
+    case T_CLIENT:
+        gui_focus_window(t.win);
+        send_mouse(t.win, WM_CONTEXT, x, y, MB_RIGHT, 0, 0);
+        break;
+    }
+}
+
+static int s_right;
+
 static void on_mouse(const mouse_event_t *m) {
     int x = m->x, y = m->y;
     int left = m->buttons & MB_LEFT;
-    int prev = s_left;
+    int right = m->buttons & MB_RIGHT;
+    int prev = s_left, rprev = s_right;
     s_left = left;
+    s_right = right;
 
     if (m->dz) {
         target_t t = pick(x, y);
         if (t.kind == T_CLIENT) send_mouse(t.win, WM_WHEEL, x, y, m->buttons, m->dz, 0);
+    }
+
+    if (right && !rprev && !left) {
+        update_hover(x, y);
+        context_click(x, y);
     }
 
     if (left && !prev) {
@@ -632,13 +856,12 @@ static void on_mouse(const mouse_event_t *m) {
     }
 
     // меню: подсветка следует за мышью
-    if (s_menu_open && s_hover.kind == T_MENU && s_hover.idx >= 0 && s_hover.idx != s_menu_sel) {
+    if (s_menu_open && s_hover.kind == T_MENU && s_hover.idx >= 0 && s_hover.idx != s_menu_sel)
         s_menu_sel = s_hover.idx;
-    }
 }
 
 static void on_key(const key_event_t *k) {
-    int alt = k->mods & MOD_ALT, ctrl = k->mods & MOD_CTRL;
+    int alt = k->mods & MOD_ALT, ctrl = k->mods & MOD_CTRL, shift = k->mods & MOD_SHIFT;
 
     if (k->key == KEY_SUPER || (alt && k->key == KEY_F1)) { menu_toggle(1); return; }
 
@@ -650,14 +873,39 @@ static void on_key(const key_event_t *k) {
         return;
     }
 
-    if (alt && k->key == KEY_F2) { app_launch("terminal"); return; }
-    if (alt && ctrl && k->key == 't') { app_launch("terminal"); return; }
-    if (alt && k->key == KEY_F3) { app_launch("files"); return; }
-    if (alt && k->key == KEY_F4) { gui_close_window(top_window()); return; }
-    if (alt && k->key == '\t') { if (s_norder > 1) gui_focus_window(s_order[0]); return; }
+    window_t *top = top_window();
 
-    window_t *w = top_window();
-    if (w && w->app && w->app->key) w->app->key(w, k);
+    if (alt && ctrl) {                                      // Ctrl+Alt: запуск и перемещение окна
+        switch (k->key) {
+        case 't': app_launch("terminal"); return;
+        case 'f': app_launch("files"); return;
+        case 'n': app_launch("notepad"); return;
+        case KEY_LEFT:  if (top) move_window(top, top->x - 32, top->y); return;
+        case KEY_RIGHT: if (top) move_window(top, top->x + 32, top->y); return;
+        case KEY_UP:    if (top) move_window(top, top->x, top->y - 32); return;
+        case KEY_DOWN:  if (top) move_window(top, top->x, top->y + 32); return;
+        }
+    }
+
+    if (alt && !ctrl) {
+        if (k->key == KEY_F2) { app_launch("terminal"); return; }
+        if (k->key == KEY_F3) { app_launch("files"); return; }
+        if (k->key == KEY_F4) { gui_close_window(top); return; }
+        if (k->key == 'c')    { center_window(top); return; }
+        if (k->key == '\t') {                                // Alt+Tab / Alt+Shift+Tab
+            if (shift) send_to_back(top);
+            else if (s_norder > 1) gui_focus_window(s_order[0]);
+            return;
+        }
+        if (k->key >= '1' && k->key <= '9') {                // Alt+1..9 - n-е окно
+            window_t *tasks[MAX_WINDOWS];
+            int n = collect_tasks(tasks), i = k->key - '1';
+            if (i < n) gui_focus_window(tasks[i]);
+            return;
+        }
+    }
+
+    if (top && top->app && top->app->key) top->app->key(top, k);
 }
 
 // ---------- инициализация и главный цикл ----------
@@ -665,33 +913,27 @@ static void on_key(const key_event_t *k) {
 void gui_init(void) {
     s_w = gfx_width();
     s_h = gfx_height();
-
-    for (int i = 0; i < APP_COUNT && s_nmenu < MAX_MENU - 3; i++) {
-        s_menu[s_nmenu].label = APP_LIST[i].label;
-        s_menu[s_nmenu].icon  = APP_LIST[i].icon;
-        s_menu[s_nmenu].kind  = MK_APP;
-        s_menu[s_nmenu].app   = i;
-        s_nmenu++;
-    }
-    s_menu[s_nmenu++] = (menu_item_t){ 0, 0, MK_SEP, 0 };
-    s_menu[s_nmenu++] = (menu_item_t){ "Restart",   ICON_RESTART, MK_RESTART,  0 };
-    s_menu[s_nmenu++] = (menu_item_t){ "Shut Down", ICON_POWER,   MK_SHUTDOWN, 0 };
 }
 
 static void update_clock(uint32_t now) {
     static uint32_t last;
     if (last && now - last < 1000) return;
     last = now ? now : 1;
-    rtc_time_t t;
-    rtc_get(&t);
+
+    rtc_get(&s_rtc);
+    ksnprintf(s_clock_full, sizeof(s_clock_full), "%02d:%02d:%02d", s_rtc.hour, s_rtc.minute, s_rtc.second);
+
     char buf[8];
-    ksnprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+    ksnprintf(buf, sizeof(buf), "%02d:%02d", s_rtc.hour, s_rtc.minute);
     if (strcmp(buf, s_clock) != 0) {
         strlcpy(s_clock, buf, sizeof(s_clock));
         int x, y, w, h;
         clock_rect(&x, &y, &w, &h);
         gui_invalidate(x, y, w, h);
     }
+    int hx, hy, hw, hh;
+    hud_rect(&hx, &hy, &hw, &hh);
+    gui_invalidate(hx, hy, hw, 100);                         // часы, дата, uptime
 }
 
 void gui_run(void) {

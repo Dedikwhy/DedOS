@@ -190,9 +190,25 @@ static void on_key(window_t *w, const key_event_t *k) {
     gui_invalidate_window(w);
 }
 
+enum { NC_SAVE = 1, NC_COPY, NC_CUT, NC_PASTE };
+
+static void ctx_cb(void *ctx, int id) {
+    static const char keys[] = { 0, 's', 'c', 'x', 'v' };
+    key_event_t k = { (uint16_t)keys[id], MOD_CTRL };
+    on_key(ctx, &k);
+}
+
 static void on_mouse(window_t *w, const wmouse_t *m) {
     pad_t *p = w->priv;
-    if (m->type == WM_WHEEL) {
+    if (m->type == WM_CONTEXT) {
+        gui_menu_item_t it[4] = {
+            { "Save",      -1, NC_SAVE },
+            { "Copy Line", -1, NC_COPY },
+            { "Cut Line",  -1, NC_CUT },
+            { "Paste",     -1, NC_PASTE },
+        };
+        gui_popup(gui_client_x(w) + m->x, gui_client_y(w) + m->y, it, 4, ctx_cb, w);
+    } else if (m->type == WM_WHEEL) {
         p->top -= m->dz * 3;
         int max = total_rows(p) - 1;
         if (p->top > max) p->top = max;

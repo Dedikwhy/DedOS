@@ -21,6 +21,7 @@ typedef struct {
 // Относительные пути превращает в абсолютные fs_resolve().
 
 void    fs_init(void);                                   // создаёт стандартное дерево
+void    fs_usage(int *used, int *total);                 // занято записей / всего
 uint32_t fs_generation(void);                            // растёт при любом изменении (для обновления окон)
 
 int     fs_resolve(const char *cwd, const char *path, char *out);   // 0 ок, -1 слишком длинный путь

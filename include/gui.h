@@ -8,7 +8,7 @@
 
 typedef struct window window_t;
 
-enum { WM_MOVE, WM_DOWN, WM_UP, WM_WHEEL, WM_LEAVE };
+enum { WM_MOVE, WM_DOWN, WM_UP, WM_WHEEL, WM_LEAVE, WM_CONTEXT };   // WM_CONTEXT - правый клик
 
 typedef struct {
     int type;
@@ -44,6 +44,11 @@ void gui_close_window(window_t *w);
 void gui_focus_window(window_t *w);
 int  gui_is_focused(const window_t *w);
 void gui_set_title(window_t *w, const char *title);
+
+// Всплывающее меню (ПКМ). label == NULL - разделитель, icon < 0 - без иконки.
+// Пункты копируются, строки должны быть статическими. cb вызывается с id выбранного пункта.
+typedef struct { const char *label; int icon; int id; } gui_menu_item_t;
+void gui_popup(int x, int y, const gui_menu_item_t *items, int n, void (*cb)(void *ctx, int id), void *ctx);
 
 // Пометить область грязной (координаты экрана / относительные к клиентской области).
 void gui_invalidate(int x, int y, int w, int h);
